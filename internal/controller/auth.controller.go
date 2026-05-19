@@ -1,0 +1,65 @@
+package controller
+
+import (
+	"net/http"
+	"strings"
+
+	"github.com/aqilknz/backend-ewallet/internal/dto"
+	"github.com/aqilknz/backend-ewallet/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+type AuthController struct {
+	authService *service.AuthService
+}
+
+func NewAuthController(authService *service.AuthService) *AuthController {
+	return &AuthController{authService: authService}
+}
+
+func (ac *AuthController) Register(c *gin.Context) {
+	var req dto.RegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Data input tidak valid"})
+		return
+	}
+
+	userData, err := ac.authService.RegisterUser(c.Request.Context(), req)
+	if err != nil {
+		msg := err.Error()
+		if strings.Contains(msg, "tidak valid") || strings.Contains(msg, "sudah terdaftar") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": msg})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":  "Terjadi kegagalan server internal",
+			"detail": msg,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.AuthResponse{
+		Message: "Registrasi berhasil, akun telah dibuat",
+		Data:    userData,
+	})
+}
+
+func (ac *AuthController) Login(c *gin.Context) {
+	var req dto.LoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email dan password wajib diisi"})
+		return
+	}
+
+	token, err := ac.authService.LoginUser(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.AuthResponse{
+		Message: "Login berhasil",
+		Token:   token,
+	})
+}
