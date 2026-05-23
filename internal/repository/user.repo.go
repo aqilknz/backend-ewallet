@@ -69,7 +69,6 @@ func (r *userRepository) UpdateProfile(ctx context.Context, userID int, req dto.
 
 func (r *userRepository) GetPasswordAndPin(ctx context.Context, userID int) (string, string, error) {
 	var pass, pin string
-	// Gunakan COALESCE untuk PIN berjaga-jaga jika masih NULL di database
 	query := `SELECT password, COALESCE(pin, '') FROM users WHERE id = $1`
 	err := r.db.QueryRow(ctx, query, userID).Scan(&pass, &pin)
 	return pass, pin, err
