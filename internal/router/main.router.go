@@ -1,18 +1,22 @@
 package router
 
 import (
+	_ "github.com/aqilknz/backend-ewallet/docs"
 	"github.com/aqilknz/backend-ewallet/internal/controller"
+	"github.com/aqilknz/backend-ewallet/internal/middleware"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/internal/service"
-	"github.com/aqilknz/backend-ewallet/pkg/utils" // Import CORS kamu
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // InitRouter adalah fungsi utama yang dipanggil oleh main.go
 func InitRouter(app *gin.Engine, db *pgxpool.Pool) {
 	// 1. Pasang Middleware CORS Global
-	app.Use(utils.CORSMiddleware)
+	app.Use(middleware.CORSMiddleware)
+	app.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// untuk auth
 	authRepo := repository.NewAuthRepository(db)
