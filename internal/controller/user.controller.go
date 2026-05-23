@@ -1,11 +1,11 @@
 package controller
 
 import (
-	"net/http"
-
 	"github.com/aqilknz/backend-ewallet/internal/dto"
+	"github.com/aqilknz/backend-ewallet/internal/response"
 	"github.com/aqilknz/backend-ewallet/internal/service"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
 )
 
 type UserController struct {
@@ -16,78 +16,171 @@ func NewUserController(userService *service.UserService) *UserController {
 	return &UserController{userService: userService}
 }
 
-func (uc *UserController) GetProfile(c *gin.Context) {
-	userID := c.MustGet("user_id").(int)
+// Get User Profile
+//
+//	@Summary		Get user profile
+//	@Description	Detailed profile information of the login user
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	dto.Response
+//	@Failure		400	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Failure		500	{object}	dto.Response
+//	@Router			/users/profile [get]
+func (uc *UserController) GetProfile(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
 
-	profile, err := uc.userService.GetProfile(c.Request.Context(), userID)
+	profile, err := uc.userService.GetProfile(ctx.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil profil"})
+		response.JSONInternalServerError(ctx, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Sukses", "data": profile})
+	response.JSONSuccess(ctx, profile, "Profil berhasil diambil")
 }
 
-func (uc *UserController) GetDashboard(c *gin.Context) {
-	userID := c.MustGet("user_id").(int)
+// Get User Dashboard
+//
+//	@Summary		Get user dashboard
+//	@Description	Detailed dashboard information of user
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Success		200	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Failure		500	{object}	dto.Response
+//	@Router			/users/dashboard [get]
+func (uc *UserController) GetDashboard(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
 
-	data, err := uc.userService.GetDashboard(c.Request.Context(), userID)
+	data, err := uc.userService.GetDashboard(ctx.Request.Context(), userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengambil data dashboard"})
+		response.JSONInternalServerError(ctx, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Sukses", "data": data})
+	response.JSONSuccess(ctx, data, "Data dashboard berhasil diambil")
 }
 
-func (uc *UserController) EditProfile(c *gin.Context) {
-	userID := c.MustGet("user_id").(int)
+// Update Profile
+//
+//	@Summary		Update user profile data
+//	@Description	Modify user details such as name, phone number, etc.
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Param			body body dto.EditProfileRequest true "Update profile payload"
+//	@Success		200	{object}	dto.Response
+//	@Failure		400	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Router			/users/profile [put]
+func (uc *UserController) EditProfile(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
 	var req dto.EditProfileRequest
-	// var data dto.UserProfileResponse
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data tidak valid"})
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
 		return
 	}
-	data, err := uc.userService.EditProfile(c.Request.Context(), userID, req)
+
+	data, err := uc.userService.EditProfile(ctx.Request.Context(), userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal update profil"})
+		response.JSONInternalServerError(ctx, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui", "data": data})
+	response.JSONSuccess(ctx, data, "Profil berhasil diperbarui")
 }
 
-func (uc *UserController) EditPassword(c *gin.Context) {
-	userID := c.MustGet("user_id").(int)
+// Update Password
+//
+//	@Summary		Change user password
+//	@Description	Update the account password by verifying the old password first
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Param			body body dto.EditPasswordRequest true "Update password payload"
+//	@Success		200	{object}	dto.Response
+//	@Failure		400	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Router			/users/profile/password [patch]
+func (uc *UserController) EditPassword(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
 	var req dto.EditPasswordRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Data input tidak lengkap atau tidak sesuai format"})
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
 		return
 	}
 
-	if err := uc.userService.EditPassword(c.Request.Context(), userID, req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := uc.userService.EditPassword(ctx.Request.Context(), userID, req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Password berhasil diubah"})
+	response.JSONSuccess(ctx, nil, "Password berhasil diubah")
 }
 
-func (uc *UserController) EditPin(c *gin.Context) {
-	userID := c.MustGet("user_id").(int)
+// Update PIN
+//
+//	@Summary		Setup or change user transaction PIN
+//	@Description	Update the 6-digit PIN used for validating transactions
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Param			body body dto.EditPinRequest true "Update PIN payload"
+//	@Success		200	{object}	dto.Response
+//	@Failure		400	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Router			/users/profile/pin [patch]
+func (uc *UserController) EditPin(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
 	var req dto.EditPinRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "PIN harus 6 digit angka"})
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, "PIN harus 6 digit angka")
 		return
 	}
 
-	if err := uc.userService.EditPin(c.Request.Context(), userID, req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := uc.userService.EditPin(ctx.Request.Context(), userID, req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "PIN berhasil diubah"})
+	response.JSONSuccess(ctx, nil, "Pin berhasil diubah")
+}
+
+// Check PIN
+//
+//	@Summary		Verify PIN for transaction
+//	@Description	Check if the provided 6-digit PIN matches the user's PIN before authorizing a transaction
+//	@Tags			transaction
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Param			body body dto.CheckPinRequest true "Check PIN payload"
+//	@Success		200	{object}	dto.Response
+//	@Failure		400	{object}	dto.Response
+//	@Failure		401	{object}	dto.Response
+//	@Router			/users/transaction/checkpin [post]
+func (uc *UserController) CheckPin(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
+	var req dto.CheckPinRequest
+
+	if err := ctx.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
+		return
+	}
+	if err := uc.userService.CheckPin(ctx.Request.Context(), userID, req); err != nil {
+		response.JSONUnauthorized(ctx, "Akses ditolak", err.Error())
+		return
+	}
+
+	response.JSONSuccess(ctx, nil, "PIN valid")
 }
