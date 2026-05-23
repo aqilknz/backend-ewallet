@@ -18,6 +18,7 @@ func RegisterUserRoutes(rg *gin.RouterGroup, userController *controller.UserCont
 
 	// Update Data
 	userGroup.PUT("/profile", userController.EditProfile)
-	userGroup.PUT("/password", userController.EditPassword)
-	userGroup.PATCH("/pin", userController.EditPin)
+	userGroup.PATCH("/profile/password", userController.EditPassword)
+	userGroup.PATCH("/profile/pin", userController.EditPin)
+	userGroup.POST("/transaction/checkpin", userController.CheckPin)
 }
