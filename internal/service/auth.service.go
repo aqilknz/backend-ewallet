@@ -7,7 +7,7 @@ import (
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
-	"github.com/aqilknz/backend-ewallet/pkg/utils"
+	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -24,7 +24,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 	var resData dto.RegisterDataResponse
 
 	// Validasi Format Email
-	if !utils.IsValidEmail(req.Email) {
+	if !pkg.IsValidEmail(req.Email) {
 		return resData, errors.New("format email tidak valid")
 	}
 
@@ -43,7 +43,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 	}
 
 	// Hash Password
-	hashedPassword, err := utils.HashPassword(req.Password)
+	hashedPassword, err := pkg.HashData(req.Password)
 	if err != nil {
 		return resData, errors.New("gagal memproses password")
 	}
@@ -96,13 +96,13 @@ func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (stri
 	}
 
 	// Cek Validitas Password
-	match, err := utils.CheckPassword(req.Password, user.Password)
+	match, err := pkg.VerifyHash(req.Password, user.Password)
 	if err != nil || !match {
 		return "", errors.New("email atau password salah")
 	}
 
 	// Buat JWT Token
-	token, err := utils.GenerateToken(int(user.ID))
+	token, err := pkg.GenerateToken(int(user.ID))
 	if err != nil {
 		return "", errors.New("gagal membuat sesi login")
 	}

@@ -6,7 +6,7 @@ import (
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
-	"github.com/aqilknz/backend-ewallet/pkg/utils"
+	"github.com/aqilknz/backend-ewallet/pkg"
 )
 
 type UserService struct {
@@ -45,46 +45,61 @@ func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditP
 }
 
 func (s *UserService) EditPassword(ctx context.Context, userID int, req dto.EditPasswordRequest) error {
-	// Ambil data lama dari database
+	if len(req.NewPassword) < 6 {
+		return errors.New("password baru minimal harus 6 karakter")
+	}
 	oldHash, _, err := s.userRepo.GetPasswordAndPin(ctx, userID)
 	if err != nil {
 		return errors.New("user tidak ditemukan")
 	}
-
-	// Cocokkan password lama inputan user dengan hash di database
-	match, _ := utils.CheckPassword(req.OldPassword, oldHash)
+	match, _ := pkg.VerifyHash(req.OldPassword, oldHash)
 	if !match {
 		return errors.New("password lama salah")
 	}
 
-	// Hash password baru
-	newHash, err := utils.HashPassword(req.NewPassword)
+	newHash, err := pkg.HashData(req.NewPassword)
 	if err != nil {
 		return errors.New("gagal memproses password baru")
 	}
 
-	// Simpan ke database
 	return s.userRepo.UpdatePassword(ctx, userID, newHash)
 }
 
 func (s *UserService) EditPin(ctx context.Context, userID int, req dto.EditPinRequest) error {
+	if len(req.NewPin) < 6 {
+		return errors.New("pin minimal 6 digit")
+	}
 	_, oldPinHash, err := s.userRepo.GetPasswordAndPin(ctx, userID)
 	if err != nil {
 		return errors.New("user tidak ditemukan")
 	}
 
-	// Jika PIN sudah ada isinya, wajib cek kecocokan old_pin
 	if oldPinHash != "" {
-		match, _ := utils.CheckPassword(req.OldPin, oldPinHash)
+		match, _ := pkg.VerifyHash(req.OldPin, oldPinHash)
 		if !match {
 			return errors.New("PIN lama salah")
 		}
 	}
 
-	newPinHash, err := utils.HashPassword(req.NewPin)
+	newPinHash, err := pkg.HashData(req.NewPin)
 	if err != nil {
 		return errors.New("gagal memproses PIN baru")
 	}
 
 	return s.userRepo.UpdatePin(ctx, userID, newPinHash)
+}
+
+func (s *UserService) CheckPin(ctx context.Context, userID int, req dto.CheckPinRequest) error {
+	_, PinHash, err := s.userRepo.GetPasswordAndPin(ctx, userID)
+	if err != nil {
+		return errors.New("user tidak ditemukan")
+	}
+	if PinHash == "" {
+		return errors.New("Pin belum diatur, buatlah terlebih dahulu")
+	}
+	match, _ := pkg.VerifyHash(req.Pin, PinHash)
+	if !match {
+		return errors.New("Pin salah")
+	}
+	return nil
 }
