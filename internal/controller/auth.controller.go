@@ -17,6 +17,18 @@ func NewAuthController(authService *service.AuthService) *AuthController {
 	return &AuthController{authService: authService}
 }
 
+// User Register
+//
+//	@Summary		Register a user
+//	@Description	Create a new user account for E-Wallet
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body body dto.RegisterRequest true "register payload"
+//	@Success		201	{object}	dto.AuthResponse
+//	@Failure		400	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/auth/register [post]
 func (ac *AuthController) Register(c *gin.Context) {
 	var req dto.RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -45,6 +57,18 @@ func (ac *AuthController) Register(c *gin.Context) {
 	})
 }
 
+// User Login
+//
+//	@Summary		Login a user
+//	@Description	Authenticate user and get JWT token
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body body dto.LoginRequest true "login payload"
+//	@Success		200	{object}	dto.AuthResponse
+//	@Failure		400	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]interface{}
+//	@Router			/auth [post]
 func (ac *AuthController) Login(c *gin.Context) {
 	var req dto.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
