@@ -117,7 +117,6 @@ func (uc *UserController) EditPassword(ctx *gin.Context) {
 		response.JSONBadRequest(ctx, err.Error())
 		return
 	}
-
 	if err := uc.userService.EditPassword(ctx.Request.Context(), userID, req); err != nil {
 		response.JSONBadRequest(ctx, err.Error())
 		return
@@ -181,6 +180,5 @@ func (uc *UserController) CheckPin(ctx *gin.Context) {
 		response.JSONUnauthorized(ctx, "Akses ditolak", err.Error())
 		return
 	}
-
 	response.JSONSuccess(ctx, nil, "PIN valid")
 }
