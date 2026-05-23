@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aqilknz/backend-ewallet/pkg/utils"
+	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/gin-gonic/gin"
 )
 
@@ -30,7 +30,7 @@ func RequireAuth() gin.HandlerFunc {
 
 		tokenString := parts[1]
 
-		userID, err := utils.VerifyToken(tokenString)
+		userID, err := pkg.VerifyToken(tokenString)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "Token tidak valid atau sudah kadaluarsa",
