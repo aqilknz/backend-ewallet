@@ -1,4 +1,4 @@
-package utils
+package pkg
 
 import (
 	"crypto/rand"
@@ -44,9 +44,9 @@ func (h *HashConfig) genSalt() []byte {
 	return salt
 }
 
-func (h *HashConfig) GenHash(pwd string) string {
+func (h *HashConfig) GenHash(pwdpin string) string {
 	salt := h.genSalt()
-	hash := argon2.IDKey([]byte(pwd), salt, h.Time, h.Memory, h.Threads, h.KeyLen)
+	hash := argon2.IDKey([]byte(pwdpin), salt, h.Time, h.Memory, h.Threads, h.KeyLen)
 
 	version := argon2.Version
 	encodedSalt := base64.RawStdEncoding.EncodeToString(salt)
@@ -56,8 +56,8 @@ func (h *HashConfig) GenHash(pwd string) string {
 	return out
 }
 
-func (h *HashConfig) Compare(pwd string, hashedPwd string) error {
-	splittedHash := strings.Split(hashedPwd, "$")
+func (h *HashConfig) Compare(pwdpin string, hashedpwdpin string) error {
+	splittedHash := strings.Split(hashedpwdpin, "$")
 
 	if len(splittedHash) != 6 {
 		return errors.New("invalid Hash")
@@ -89,26 +89,26 @@ func (h *HashConfig) Compare(pwd string, hashedPwd string) error {
 		return errors.New("failed to decode hash")
 	}
 
-	newHash := argon2.IDKey([]byte(pwd), salt, time, memory, threads, uint32(len(hash)))
+	newHash := argon2.IDKey([]byte(pwdpin), salt, time, memory, threads, uint32(len(hash)))
 
 	if subtle.ConstantTimeCompare(hash, newHash) == 0 {
-		return errors.New("wrong password")
+		return errors.New("wrong")
 	}
 	return nil
 }
 
-func HashPassword(password string) (string, error) {
+func HashData(passpin string) (string, error) {
 	cfg := NewHashConfig(0, 0, 0, 0, 0)
 	cfg.UseRecommended()
 
-	hashed := cfg.GenHash(password)
+	hashed := cfg.GenHash(passpin)
 	return hashed, nil
 }
 
-func CheckPassword(password, hash string) (bool, error) {
+func VerifyHash(passpin, hash string) (bool, error) {
 	cfg := NewHashConfig(0, 0, 0, 0, 0)
 
-	err := cfg.Compare(password, hash)
+	err := cfg.Compare(passpin, hash)
 	if err != nil {
 		return false, err
 	}
