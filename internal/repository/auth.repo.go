@@ -14,6 +14,8 @@ type AuthRepository interface {
 	CreateProfile(ctx context.Context, tx pgx.Tx, userID uint) error
 	CreateWallet(ctx context.Context, tx pgx.Tx, userID uint) error
 	GetUserByEmail(ctx context.Context, email string) (model.User, error)
+	AddTokenToBlacklist(ctx context.Context, token string) error
+	IsTokenBlacklisted(ctx context.Context, token string) bool
 }
 
 type authRepository struct {
@@ -66,4 +68,25 @@ func (r *authRepository) GetUserByEmail(ctx context.Context, email string) (mode
 	var user model.User
 	err := r.db.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Email, &user.Password)
 	return user, err
+}
+
+func (r *authRepository) AddTokenToBlacklist(ctx context.Context, token string) error {
+	// ON CONFLICT DO NOTHING mencegah error jika user menekan logout 2x berturut-turut
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO token_blacklists (token, created_at) 
+		VALUES ($1, NOW()) 
+		ON CONFLICT (token) DO NOTHING`, token)
+	return err
+}
+
+func (r *authRepository) IsTokenBlacklisted(ctx context.Context, token string) bool {
+	var exists bool
+	err := r.db.QueryRow(ctx, `
+		SELECT EXISTS(SELECT 1 FROM token_blacklists WHERE token = $1)
+	`, token).Scan(&exists)
+
+	if err != nil {
+		return false
+	}
+	return exists
 }
