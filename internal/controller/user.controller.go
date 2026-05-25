@@ -1,6 +1,12 @@
 package controller
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/response"
 	"github.com/aqilknz/backend-ewallet/internal/service"
@@ -24,10 +30,10 @@ func NewUserController(userService *service.UserService) *UserController {
 //	@Accept			json
 //	@Produce		json
 //	@Security		ApiKeyAuth
-//	@Success		200	{object}	dto.Response
-//	@Failure		400	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
-//	@Failure		500	{object}	dto.Response
+//	@Success		200 {object}	dto.Response[dto.UserProfileResponse]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		401 {object}	dto.Response[any]
+//	@Failure		500 {object}	dto.Response[any]
 //	@Router			/users/profile [get]
 func (uc *UserController) GetProfile(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
@@ -49,9 +55,9 @@ func (uc *UserController) GetProfile(ctx *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Security		ApiKeyAuth
-//	@Success		200	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
-//	@Failure		500	{object}	dto.Response
+//	@Success		200 {object}	dto.Response[dto.DashboardResponse]
+//	@Failure		401 {object}	dto.Response[any]
+//	@Failure		500 {object}	dto.Response[any]
 //	@Router			/users/dashboard [get]
 func (uc *UserController) GetDashboard(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
@@ -65,29 +71,65 @@ func (uc *UserController) GetDashboard(ctx *gin.Context) {
 	response.JSONSuccess(ctx, data, "Data dashboard berhasil diambil")
 }
 
-// Update Profile
+// Edit Profile
 //
-//	@Summary		Update user profile data
-//	@Description	Modify user details such as name, phone number, etc.
-//	@Tags			users
-//	@Accept			json
-//	@Produce		json
-//	@Security		ApiKeyAuth
-//	@Param			body body dto.EditProfileRequest true "Update profile payload"
-//	@Success		200	{object}	dto.Response
-//	@Failure		400	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
-//	@Router			/users/profile [put]
+//	@Summary        Edit user profile data
+//	@Description    Modify user details such as name, phone number, and photo using multipart form data
+//	@Tags           users
+//	@Accept         mpfd
+//	@Produce        json
+//	@Security       ApiKeyAuth
+//	@Param          fullname    formData    string  false   "Update Fullname"
+//	@Param          phone       formData    string  false   "Update Phone"
+//	@Param          picture     formData    file    false   "Update Profile Picture (Max 2MB)"
+//	@Success        200         {object}    dto.Response[dto.UserProfileResponse]
+//	@Failure        400         {object}    dto.Response[any]
+//	@Failure        401         {object}    dto.Response[any]
+//	@Failure        500         {object}    dto.Response[any]
+//	@Router         /users/profile [patch]
 func (uc *UserController) EditProfile(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
+
 	var req dto.EditProfileRequest
 
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.JSONBadRequest(ctx, err.Error())
+	if err := ctx.ShouldBindWith(&req, binding.FormMultipart); err != nil {
+		response.JSONBadRequest(ctx, "Data input tidak valid: "+err.Error())
 		return
 	}
 
-	data, err := uc.userService.EditProfile(ctx.Request.Context(), userID, req)
+	var pictureURL *string
+
+	if req.Picture != nil {
+		const maxUploadSize = 2 * 1024 * 1024
+		if req.Picture.Size > maxUploadSize {
+			response.JSONBadRequest(ctx, "Ukuran file terlalu besar, maksimal 2MB")
+			return
+		}
+
+		ext := strings.ToLower(filepath.Ext(req.Picture.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
+			response.JSONBadRequest(ctx, "Format file tidak didukung. Gunakan .jpg, .jpeg, atau .png")
+			return
+		}
+
+		filename := fmt.Sprintf("user_%d_%d%s", userID, time.Now().UnixNano(), ext)
+		dst := filepath.Join("public", "img", "profiles", filename)
+
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			response.JSONInternalServerError(ctx, "Gagal membuat direktori penyimpanan gambar")
+			return
+		}
+
+		if err := ctx.SaveUploadedFile(req.Picture, dst); err != nil {
+			response.JSONInternalServerError(ctx, "Gagal menyimpan gambar profil")
+			return
+		}
+
+		generatedURL := "/img/profiles/" + filename
+		pictureURL = &generatedURL
+	}
+
+	data, err := uc.userService.EditProfile(ctx.Request.Context(), userID, req, pictureURL)
 	if err != nil {
 		response.JSONInternalServerError(ctx, err.Error())
 		return
@@ -104,10 +146,10 @@ func (uc *UserController) EditProfile(ctx *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Security		ApiKeyAuth
-//	@Param			body body dto.EditPasswordRequest true "Update password payload"
-//	@Success		200	{object}	dto.Response
-//	@Failure		400	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
+//	@Param			body body		dto.EditPasswordRequest true "Update password payload"
+//	@Success		200 {object}	dto.Response[any]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		401 {object}	dto.Response[any]
 //	@Router			/users/profile/password [patch]
 func (uc *UserController) EditPassword(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
@@ -122,7 +164,8 @@ func (uc *UserController) EditPassword(ctx *gin.Context) {
 		return
 	}
 
-	response.JSONSuccess(ctx, nil, "Password berhasil diubah")
+	// Memasukkan [any] secara eksplisit karena nil
+	response.JSONSuccess[any](ctx, nil, "Password berhasil diubah")
 }
 
 // Update PIN
@@ -133,17 +176,17 @@ func (uc *UserController) EditPassword(ctx *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Security		ApiKeyAuth
-//	@Param			body body dto.EditPinRequest true "Update PIN payload"
-//	@Success		200	{object}	dto.Response
-//	@Failure		400	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
+//	@Param			body body		dto.EditPinRequest true "Update PIN payload"
+//	@Success		200 {object}	dto.Response[any]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		401 {object}	dto.Response[any]
 //	@Router			/users/profile/pin [patch]
 func (uc *UserController) EditPin(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
 	var req dto.EditPinRequest
 
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		response.JSONBadRequest(ctx, "PIN harus 6 digit angka")
+		response.JSONBadRequest(ctx, "Format PIN tidak valid")
 		return
 	}
 
@@ -152,7 +195,8 @@ func (uc *UserController) EditPin(ctx *gin.Context) {
 		return
 	}
 
-	response.JSONSuccess(ctx, nil, "Pin berhasil diubah")
+	// Memasukkan [any] secara eksplisit karena nil
+	response.JSONSuccess[any](ctx, nil, "Pin berhasil diubah")
 }
 
 // Check PIN
@@ -163,13 +207,14 @@ func (uc *UserController) EditPin(ctx *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Security		ApiKeyAuth
-//	@Param			body body dto.CheckPinRequest true "Check PIN payload"
-//	@Success		200	{object}	dto.Response
-//	@Failure		400	{object}	dto.Response
-//	@Failure		401	{object}	dto.Response
+//	@Param			body body		dto.CheckPinRequest true "Check PIN payload"
+//	@Success		200 {object}	dto.Response[any]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		401 {object}	dto.Response[any]
 //	@Router			/users/transaction/checkpin [post]
 func (uc *UserController) CheckPin(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
+	// Pastikan kamu memiliki struct CheckPinRequest di file dto kamu
 	var req dto.CheckPinRequest
 
 	if err := ctx.ShouldBindBodyWith(&req, binding.JSON); err != nil {
@@ -180,5 +225,40 @@ func (uc *UserController) CheckPin(ctx *gin.Context) {
 		response.JSONUnauthorized(ctx, "Akses ditolak", err.Error())
 		return
 	}
-	response.JSONSuccess(ctx, nil, "PIN valid")
+
+	// Memasukkan [any] secara eksplisit karena nil
+	response.JSONSuccess[any](ctx, nil, "PIN valid")
+}
+
+// Find Receivers
+//
+//	@Summary		Find receivers for transfer
+//	@Description	Search other users by name, email, or phone with pagination
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Param			search	query	string	false	"Search by name, email, phone"
+//	@Param			page	query	int		false	"Page number"		default(1)
+//	@Param			limit	query	int		false	"Items per page"	default(10)
+//	@Success		200		{object}	dto.Response[dto.ReceiverListResponse]
+//	@Failure		400		{object}	dto.Response[any]
+//	@Failure		500		{object}	dto.Response[any]
+//	@Router			/users/receivers [get]
+func (uc *UserController) FindReceivers(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
+	var param dto.ReceiverFilterParam
+
+	if err := ctx.ShouldBindQuery(&param); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
+		return
+	}
+
+	result, err := uc.userService.FindReceivers(ctx.Request.Context(), userID, param)
+	if err != nil {
+		response.JSONInternalServerError(ctx, err.Error())
+		return
+	}
+
+	response.JSONSuccess(ctx, result, "Berhasil mengambil data penerima")
 }
