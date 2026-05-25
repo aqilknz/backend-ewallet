@@ -1,5 +1,7 @@
 package dto
 
+import "mime/multipart"
+
 type UserProfileResponse struct {
 	Email    string `json:"email"`
 	FullName string `json:"full_name"`
@@ -14,9 +16,9 @@ type DashboardResponse struct {
 }
 
 type EditProfileRequest struct {
-	FullName string `json:"full_name"`
-	Phone    string `json:"phone"`
-	Photo    string `json:"photo"`
+	Fullname *string               `form:"fullname"`
+	Phone    *string               `form:"phone"`
+	Picture  *multipart.FileHeader `form:"picture" binding:"omitempty"`
 }
 
 type EditPasswordRequest struct {
@@ -27,4 +29,34 @@ type EditPasswordRequest struct {
 type EditPinRequest struct {
 	OldPin string `json:"old_pin"`
 	NewPin string `json:"new_pin" binding:"required,len=6"`
+}
+
+// DTO untuk Parameter dari URL (?search=...&page=...&limit=...)
+type ReceiverFilterParam struct {
+	Search string `form:"search"`
+	Page   int    `form:"page,default=1" binding:"omitempty,min=1"`
+	Limit  int    `form:"limit,default=10" binding:"omitempty,min=1,max=100"`
+}
+
+// ReceiverResponse mencerminkan kolom dari tabel 'profiles' dan 'users'
+type ReceiverResponse struct {
+	ID       int    `json:"id"`        // users.id
+	FullName string `json:"full_name"` // profiles.full_name
+	Email    string `json:"email"`     // users.email
+	Phone    string `json:"phone"`     // profiles.phone
+	Photo    string `json:"photo"`     // profiles.photo
+}
+
+// PaginationMeta untuk informasi halaman
+type PaginationMeta struct {
+	CurrentPage  int `json:"current_page"`
+	TotalPage    int `json:"total_page"`
+	TotalRecords int `json:"total_records"`
+	Limit        int `json:"limit"`
+}
+
+// ReceiverListResponse untuk balasan akhir dari endpoint GET /users/receivers
+type ReceiverListResponse struct {
+	Receivers []ReceiverResponse `json:"receivers"`
+	Meta      PaginationMeta     `json:"meta"`
 }
