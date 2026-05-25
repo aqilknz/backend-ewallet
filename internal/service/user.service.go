@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"math"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
@@ -25,23 +26,19 @@ func (s *UserService) GetDashboard(ctx context.Context, userID int) (dto.Dashboa
 	return s.userRepo.GetDashboard(ctx, userID)
 }
 
-func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditProfileRequest) (dto.UserProfileResponse, error) {
-	err := s.userRepo.UpdateProfile(ctx, userID, req)
+func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditProfileRequest, photoURL *string) (dto.UserProfileResponse, error) {
+
+	// 1. Eksekusi Update ke Repository menggunakan pointer
+	err := s.userRepo.EditProfile(ctx, userID, req.Fullname, req.Phone, photoURL)
 	if err != nil {
 		return dto.UserProfileResponse{}, err
 	}
 
-	user, err := s.userRepo.GetUserByID(ctx, userID)
+	updatedProfile, err := s.userRepo.GetProfile(ctx, userID)
 	if err != nil {
 		return dto.UserProfileResponse{}, err
 	}
-	res := dto.UserProfileResponse{
-		Email:    user.Email,
-		FullName: req.FullName,
-		Phone:    req.Phone,
-		Photo:    req.Photo,
-	}
-	return res, nil
+	return updatedProfile, nil
 }
 
 func (s *UserService) EditPassword(ctx context.Context, userID int, req dto.EditPasswordRequest) error {
@@ -102,4 +99,26 @@ func (s *UserService) CheckPin(ctx context.Context, userID int, req dto.CheckPin
 		return errors.New("Pin salah")
 	}
 	return nil
+}
+
+func (s *UserService) FindReceivers(ctx context.Context, userID int, param dto.ReceiverFilterParam) (dto.ReceiverListResponse, error) {
+	offset := (param.Page - 1) * param.Limit
+
+	// Ambil data dari repository
+	receivers, totalRecords, err := s.userRepo.FindReceivers(ctx, userID, param.Search, param.Limit, offset)
+	if err != nil {
+		return dto.ReceiverListResponse{}, err
+	}
+
+	totalPage := int(math.Ceil(float64(totalRecords) / float64(param.Limit)))
+
+	return dto.ReceiverListResponse{
+		Receivers: receivers,
+		Meta: dto.PaginationMeta{
+			CurrentPage:  param.Page,
+			TotalPage:    totalPage,
+			TotalRecords: totalRecords,
+			Limit:        param.Limit,
+		},
+	}, nil
 }
