@@ -11,11 +11,12 @@ import (
 type UserRepository interface {
 	GetProfile(ctx context.Context, userID int) (dto.UserProfileResponse, error)
 	GetDashboard(ctx context.Context, userID int) (dto.DashboardResponse, error)
-	UpdateProfile(ctx context.Context, userID int, req dto.EditProfileRequest) error
+	EditProfile(ctx context.Context, userID int, fullname *string, phone *string, pictureURL *string) error
 	GetPasswordAndPin(ctx context.Context, userID int) (password string, pin string, err error)
 	UpdatePassword(ctx context.Context, userID int, newPassword string) error
 	UpdatePin(ctx context.Context, userID int, newPin string) error
 	GetUserByID(ctx context.Context, userID int) (model.User, error)
+	FindReceivers(ctx context.Context, userID int, search string, limit int, offset int) ([]dto.ReceiverResponse, int, error)
 }
 
 type userRepository struct {
@@ -40,17 +41,31 @@ func (r *userRepository) GetProfile(ctx context.Context, userID int) (dto.UserPr
 func (r *userRepository) GetDashboard(ctx context.Context, userID int) (dto.DashboardResponse, error) {
 	var res dto.DashboardResponse
 
-	// 1. Ambil Saldo
+	// ambil Saldo
 	err := r.db.QueryRow(ctx, `SELECT balance FROM wallets WHERE user_id = $1`, userID).Scan(&res.Balance)
 	if err != nil {
 		return res, err
 	}
 
-	// 2. Ambil Pemasukan (IN) - Gunakan COALESCE agar jika null menjadi 0
-	r.db.QueryRow(ctx, `SELECT SUM(amount) FROM transactions WHERE user_id = $1 AND flow_type = 'IN'`, userID).Scan(&res.Income)
+	// ambil Pemasukan (IN)
+	err = r.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount), 0) 
+		FROM transactions 
+		WHERE user_id = $1 AND type = 'transfer_in'`,
+		userID).Scan(&res.Income)
+	if err != nil {
+		return res, err
+	}
 
-	// 3. Ambil Pengeluaran (OUT)
-	r.db.QueryRow(ctx, `SELECT SUM(amount) FROM transactions WHERE user_id = $1 AND flow_type = 'OUT'`, userID).Scan(&res.Expense)
+	// ambil Pengeluaran (OUT)
+	err = r.db.QueryRow(ctx, `
+		SELECT COALESCE(SUM(amount), 0) 
+		FROM transactions 
+		WHERE user_id = $1 AND type = 'transfer_out'`,
+		userID).Scan(&res.Expense)
+	if err != nil {
+		return res, err
+	}
 
 	return res, nil
 }
@@ -61,9 +76,16 @@ func (r *userRepository) GetUserByID(ctx context.Context, userID int) (model.Use
 	err := r.db.QueryRow(ctx, query, userID).Scan(&user.ID, &user.Email)
 	return user, err
 }
-func (r *userRepository) UpdateProfile(ctx context.Context, userID int, req dto.EditProfileRequest) error {
-	query := `UPDATE profiles SET full_name = $1, phone = $2, photo = $3, updated_at = NOW() WHERE user_id = $4`
-	_, err := r.db.Exec(ctx, query, req.FullName, req.Phone, req.Photo, userID)
+func (r *userRepository) EditProfile(ctx context.Context, userID int, fullname *string, phone *string, pictureURL *string) error {
+	query := `
+		UPDATE profiles 
+		SET full_name = COALESCE($1, full_name), 
+		    phone = COALESCE($2, phone), 
+		    photo = COALESCE($3, photo), 
+		    updated_at = NOW() 
+		WHERE user_id = $4`
+
+	_, err := r.db.Exec(ctx, query, fullname, phone, pictureURL, userID)
 	return err
 }
 
@@ -82,4 +104,47 @@ func (r *userRepository) UpdatePassword(ctx context.Context, userID int, newPass
 func (r *userRepository) UpdatePin(ctx context.Context, userID int, newPin string) error {
 	_, err := r.db.Exec(ctx, `UPDATE users SET pin = $1, updated_at = NOW() WHERE id = $2`, newPin, userID)
 	return err
+}
+
+func (r *userRepository) FindReceivers(ctx context.Context, userID int, search string, limit int, offset int) ([]dto.ReceiverResponse, int, error) {
+	var receivers []dto.ReceiverResponse = []dto.ReceiverResponse{} // Inisiasi array kosong
+	var totalRecords int
+	searchParam := "%" + search + "%"
+
+	// Hitung Total Data
+	countQuery := `
+		SELECT COUNT(u.id)
+		FROM users u
+		JOIN profiles p ON u.id = p.user_id
+		WHERE u.id != $1 AND (u.email ILIKE $2 OR p.phone ILIKE $2 OR p.full_name ILIKE $2)`
+
+	err := r.db.QueryRow(ctx, countQuery, userID, searchParam).Scan(&totalRecords)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// ambil Data dengan Limit dan Offset
+	dataQuery := `
+		SELECT u.id, p.full_name, u.email, p.phone, p.photo
+		FROM users u
+		JOIN profiles p ON u.id = p.user_id
+		WHERE u.id != $1 AND (u.email ILIKE $2 OR p.phone ILIKE $2 OR p.full_name ILIKE $2)
+		ORDER BY p.full_name ASC
+		LIMIT $3 OFFSET $4`
+
+	rows, err := r.db.Query(ctx, dataQuery, userID, searchParam, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var rec dto.ReceiverResponse
+		if err := rows.Scan(&rec.ID, &rec.FullName, &rec.Email, &rec.Phone, &rec.Photo); err != nil {
+			return nil, 0, err
+		}
+		receivers = append(receivers, rec)
+	}
+
+	return receivers, totalRecords, nil
 }
