@@ -9,7 +9,7 @@ import (
 
 // Status 500 - Internal Server Error
 func JSONInternalServerError(ctx *gin.Context, err string) {
-	ctx.JSON(http.StatusInternalServerError, dto.Response{
+	ctx.JSON(http.StatusInternalServerError, dto.Response[any]{
 		Success: false,
 		Message: "Error",
 		Error:   err,
@@ -18,7 +18,7 @@ func JSONInternalServerError(ctx *gin.Context, err string) {
 
 // Status 400 - Bad Request
 func JSONBadRequest(ctx *gin.Context, err string) {
-	ctx.JSON(http.StatusBadRequest, dto.Response{
+	ctx.JSON(http.StatusBadRequest, dto.Response[any]{
 		Success: false,
 		Message: "Invalid Request Payload",
 		Error:   err,
@@ -27,7 +27,7 @@ func JSONBadRequest(ctx *gin.Context, err string) {
 
 // Status 401 - Unauthorized
 func JSONUnauthorized(ctx *gin.Context, message string, err string) {
-	ctx.JSON(http.StatusUnauthorized, dto.Response{
+	ctx.JSON(http.StatusUnauthorized, dto.Response[any]{
 		Success: false,
 		Message: message,
 		Error:   err,
@@ -35,8 +35,8 @@ func JSONUnauthorized(ctx *gin.Context, message string, err string) {
 }
 
 // Status 200 - OK
-func JSONSuccess(ctx *gin.Context, data any, message string) {
-	ctx.JSON(http.StatusOK, dto.Response{
+func JSONSuccess[T any](ctx *gin.Context, data T, message string) {
+	ctx.JSON(http.StatusOK, dto.Response[T]{
 		Success: true,
 		Message: message,
 		Data:    data,
@@ -44,10 +44,30 @@ func JSONSuccess(ctx *gin.Context, data any, message string) {
 }
 
 // Status 201 - Created
-func JSONCreated(ctx *gin.Context, data any, message string) {
-	ctx.JSON(http.StatusCreated, dto.Response{
+func JSONCreated[T any](ctx *gin.Context, data T, message string) {
+	ctx.JSON(http.StatusCreated, dto.Response[T]{
 		Success: true,
 		Message: message,
 		Data:    data,
+	})
+}
+
+// Status 404 - Not Found
+// Digunakan ketika data yang di-request tidak ditemukan di database
+func JSONNotFound(ctx *gin.Context, message string, err string) {
+	ctx.JSON(http.StatusNotFound, dto.Response[any]{
+		Success: false,
+		Message: message,
+		Error:   err,
+	})
+}
+
+// Status 409 - Conflict
+// Digunakan ketika ada bentrok data (contoh: Email sudah terdaftar)
+func JSONConflict(ctx *gin.Context, message string, err string) {
+	ctx.JSON(http.StatusConflict, dto.Response[any]{
+		Success: false,
+		Message: message,
+		Error:   err,
 	})
 }
