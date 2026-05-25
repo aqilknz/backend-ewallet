@@ -10,10 +10,8 @@ type User struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 
-	// Relasi (Gunakan omitempty agar tidak muncul di JSON jika datanya kosong/tidak di-join)
-	Profile      Profile       `json:"profile,omitempty"`
-	Wallet       Wallet        `json:"wallet,omitempty"`
-	Topups       []Topup       `json:"topups,omitempty"`
+	Profile      *Profile      `json:"profile,omitempty"`
+	Wallet       *Wallet       `json:"wallet,omitempty"`
 	Transactions []Transaction `json:"transactions,omitempty"`
 }
 
@@ -40,43 +38,35 @@ type PaymentMethod struct {
 	Name string `json:"name" db:"name"`
 }
 
-type Topup struct {
-	ID              uint      `json:"id" db:"id"`
-	UserID          uint      `json:"user_id" db:"user_id"`
-	PaymentMethodID uint      `json:"payment_method_id" db:"payment_method_id"`
-	Amount          int       `json:"amount" db:"amount"`
-	Fee             int       `json:"fee" db:"fee"`
-	Status          string    `json:"status" db:"status"`
-	Notes           string    `json:"notes" db:"notes"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
-
-	PaymentMethod PaymentMethod `json:"payment_method,omitempty"`
-}
-
-type Transfer struct {
-	ID         uint      `json:"id" db:"id"`
-	SenderID   uint      `json:"sender_id" db:"sender_id"`
-	ReceiverID uint      `json:"receiver_id" db:"receiver_id"`
-	Amount     int       `json:"amount" db:"amount"`
-	Fee        int       `json:"fee" db:"fee"`
-	Status     string    `json:"status" db:"status"`
-	Notes      string    `json:"notes" db:"notes"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
-
-	Sender   User `json:"sender,omitempty"`
-	Receiver User `json:"receiver,omitempty"`
-}
-
 type Transaction struct {
-	ID              uint      `json:"id" db:"id"`
-	UserID          uint      `json:"user_id" db:"user_id"`
-	TransactionType string    `json:"transaction_type" db:"transaction_type"`
-	FlowType        string    `json:"flow_type" db:"flow_type"` // contoh: IN / OUT
-	Amount          int       `json:"amount" db:"amount"`
-	ReferenceID     int       `json:"reference_id" db:"reference_id"`
-	Description     string    `json:"description" db:"description"`
-	CreatedAt       time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
+	ID        uint      `json:"id" db:"id"`
+	UserID    uint      `json:"user_id" db:"user_id"`
+	Amount    int       `json:"amount" db:"amount"`
+	Type      string    `json:"type" db:"type"`
+	Status    string    `json:"status" db:"status"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+
+	TopupDetail    *TopupDetail    `json:"topup_detail,omitempty"`
+	TransferDetail *TransferDetail `json:"transfer_detail,omitempty"`
+}
+
+type TopupDetail struct {
+	ID              uint `json:"id" db:"id"`
+	TransactionID   uint `json:"transaction_id" db:"transaction_id"`
+	PaymentMethodID uint `json:"payment_method_id" db:"payment_method_id"`
+	Discount        int  `json:"discount" db:"discount"`
+	Tax             int  `json:"tax" db:"tax"`
+	SubTotal        int  `json:"sub_total" db:"sub_total"`
+
+	PaymentMethod *PaymentMethod `json:"payment_method,omitempty"`
+}
+
+type TransferDetail struct {
+	ID             uint   `json:"id" db:"id"`
+	TransactionID  uint   `json:"transaction_id" db:"transaction_id"`
+	CounterpartyID uint   `json:"counterparty_id" db:"counterparty_id"`
+	Notes          string `json:"notes" db:"notes"`
+
+	Recipient *User `json:"recipient,omitempty"`
 }
