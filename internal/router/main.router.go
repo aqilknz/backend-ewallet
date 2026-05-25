@@ -28,9 +28,16 @@ func InitRouter(app *gin.Engine, db *pgxpool.Pool) {
 	userService := service.NewUserService(userRepo)
 	userController := controller.NewUserController(userService)
 
+	// untuk user transactions
+	txRepo := repository.NewTransactionRepository(db)
+	txService := service.NewTransactionService(txRepo)
+	txController := controller.NewTransactionController(txService)
+
 	api := app.Group("/ewallet")
 
-	RegisterAuthRoutes(api, authController)
+	RegisterAuthRoutes(api, authController, authRepo)
 
-	RegisterUserRoutes(api, userController)
+	RegisterUserRoutes(api, userController, authRepo)
+
+	RegisterTransactionRoutes(api, txController, authRepo)
 }
