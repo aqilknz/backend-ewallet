@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS transactions (
+    id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id INT NOT NULL,
+    amount BIGINT NOT NULL,
+    type TRANSACTION_TYPE NOT NULL,
+    status TRANSACTION_STATUS NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
