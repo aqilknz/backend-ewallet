@@ -1,0 +1,1 @@
+CREATE TYPE TRANSACTION_TYPE AS ENUM ('topup', 'transfer_in', 'transfer_out');
