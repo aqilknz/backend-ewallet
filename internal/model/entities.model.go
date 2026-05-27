@@ -63,10 +63,10 @@ type TopupDetail struct {
 }
 
 type TransferDetail struct {
-	ID             uint   `json:"id" db:"id"`
-	TransactionID  uint   `json:"transaction_id" db:"transaction_id"`
-	CounterpartyID uint   `json:"counterparty_id" db:"counterparty_id"`
-	Notes          string `json:"notes" db:"notes"`
+	ID            uint   `json:"id" db:"id"`
+	TransactionID uint   `json:"transaction_id" db:"transaction_id"`
+	ReceiverID    uint   `json:"receiver_id" db:"receiver_id"`
+	Notes         string `json:"notes" db:"notes"`
 
 	Recipient *User `json:"recipient,omitempty"`
 }
