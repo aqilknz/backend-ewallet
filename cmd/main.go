@@ -25,7 +25,6 @@ import (
 // @in							header
 // @name						Authorization
 // @description					Bearer token used for authorization
-
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading env. \ncause: %s", err.Error())
@@ -41,8 +40,16 @@ func main() {
 	defer db.Close()
 	log.Println("DB Connected")
 
+	// connect ke redis
+	redis, err := config.ConnectRedis(context.Background())
+	if err != nil {
+		log.Fatalf("Redis error: %v", err)
+	}
+	defer redis.Close()
+	log.Println("Redis Connected")
+
 	// install router
-	router.InitRouter(app, db)
+	router.InitRouter(app, db, redis)
 
 	// run
 	addr := fmt.Sprintf("%s:%s", os.Getenv("APP_HOST"), os.Getenv("APP_PORT"))
