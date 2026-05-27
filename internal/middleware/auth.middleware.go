@@ -9,39 +9,33 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RequireAuth adalah middleware untuk mengecek JWT Token
 func RequireAuth(authRepo repository.AuthRepository) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Ambil Header Authorization
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			response.JSONUnauthorized(c, "Akses ditolak", "Silakan login terlebih dahulu")
-			c.Abort()
-			return
-		}
+	return func(ctx *gin.Context) {
+		authHeader := ctx.GetHeader("Authorization")
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			response.JSONUnauthorized(c, "Format token tidak valid", "Gunakan format: Bearer <token>")
-			c.Abort()
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			response.JSONUnauthorized(ctx, "Akses ditolak", "Silahkan login terlebih dahulu")
+			ctx.Abort()
 			return
 		}
-
-		tokenString := parts[1]
-		if authRepo.IsTokenBlacklisted(c.Request.Context(), tokenString) {
-			response.JSONUnauthorized(c, "Sesi telah berakhir", "Silakan login kembali")
-			c.Abort()
-			return
-		}
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		userID, err := pkg.VerifyToken(tokenString)
 		if err != nil {
-			response.JSONUnauthorized(c, "Sesi tidak valid", "Token tidak valid atau sudah kadaluarsa")
-			c.Abort()
+			response.JSONUnauthorized(ctx, "Sesi tidak valid", "Token tidak valid atau sudah kadaluarsa")
+			ctx.Abort()
 			return
 		}
 
-		c.Set("user_id", userID)
-		c.Next()
+		if authRepo.IsTokenBlacklisted(ctx.Request.Context(), userID, tokenString) {
+			response.JSONUnauthorized(ctx, "Sesi telah berakhir", "Silakan login kembali")
+			ctx.Abort()
+			return
+		}
+
+		ctx.Set("user_id", userID)
+		ctx.Set("token", tokenString)
+
+		ctx.Next()
 	}
 }
