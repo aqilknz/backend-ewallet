@@ -30,8 +30,7 @@ func NewHashConfig(memory, time uint32, threads uint8, keylen, saltlen uint32) *
 }
 
 func (h *HashConfig) UseRecommended() {
-	// based on OWASP min recommendation (May 2023)
-	h.Memory = 64 * 1024 // 64 MiB
+	h.Memory = 64 * 1024
 	h.Time = 2
 	h.Threads = 1
 	h.KeyLen = 32
@@ -59,7 +58,7 @@ func (h *HashConfig) GenHash(pwdpin string) string {
 func (h *HashConfig) Compare(pwdpin string, hashedpwdpin string) error {
 	splittedHash := strings.Split(hashedpwdpin, "$")
 
-	if len(splittedHash) != 6 {
+	if len(splittedHash) < 6 {
 		return errors.New("invalid Hash")
 	}
 	if splittedHash[1] != "argon2id" {
