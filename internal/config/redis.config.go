@@ -16,6 +16,7 @@ func ConnectRedis(ctx context.Context) (*redis.Client, error) {
 
 	host := os.Getenv("REDIS_HOST")
 	port := os.Getenv("REDIS_PORT")
+	username := os.Getenv("REDIS_USERNAME")
 	password := os.Getenv("REDIS_PASSWORD")
 	dbStr := os.Getenv("REDIS_DB")
 
@@ -28,6 +29,7 @@ func ConnectRedis(ctx context.Context) (*redis.Client, error) {
 
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
+		Username: username,
 		Password: password,
 		DB:       db,
 	})
