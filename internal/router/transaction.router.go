@@ -8,12 +8,11 @@ import (
 )
 
 func RegisterTransactionRoutes(rg *gin.RouterGroup, txController *controller.TransactionController, authRepo repository.AuthRepository) {
-	// userGroup := rg.Group("/users")
-	txGroup := rg.Group("/users")
+	txGroup := rg.Group("/users/transaction")
 	txGroup.Use(middleware.RequireAuth(authRepo))
 
-	txGroup.POST("/transaction/topup", txController.TopUp)
-	txGroup.POST("/transaction/transfer", txController.Transfer)
-	txGroup.GET("/transaction/history", txController.GetHistory)
-	txGroup.GET("/transaction/report", txController.GetReport)
+	txGroup.POST("/topup", txController.TopUp)
+	txGroup.POST("/transfer", txController.Transfer)
+	txGroup.GET("/history", txController.GetHistory)
+	txGroup.GET("/report", txController.GetReport)
 }
