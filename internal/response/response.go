@@ -63,11 +63,24 @@ func JSONNotFound(ctx *gin.Context, message string, err string) {
 }
 
 // Status 409 - Conflict
-// Digunakan ketika ada bentrok data (contoh: Email sudah terdaftar)
 func JSONConflict(ctx *gin.Context, message string, err string) {
 	ctx.JSON(http.StatusConflict, dto.Response[any]{
 		Success: false,
 		Message: message,
 		Error:   err,
 	})
+}
+
+// status 422 - Unprocess
+func JSONUnprocessableEntity(ctx *gin.Context, message string, err string) {
+	ctx.JSON(http.StatusUnprocessableEntity, dto.Response[any]{
+		Success: false,
+		Message: message,
+		Error:   err,
+	})
+}
+
+// status 204 - No Content
+func JSONNoContent(ctx *gin.Context, message string) {
+	ctx.Status(http.StatusNoContent)
 }
