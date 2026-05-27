@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/pkg"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// 1. Deklarasi Sentinel Errors
 var (
 	ErrInvalidInput       = errors.New("data input tidak valid")
 	ErrEmailAlreadyExists = errors.New("email sudah terdaftar di sistem")
@@ -25,7 +26,10 @@ type AuthService struct {
 }
 
 func NewAuthService(db *pgxpool.Pool, repo repository.AuthRepository) *AuthService {
-	return &AuthService{db: db, authRepo: repo}
+	return &AuthService{
+		db:       db,
+		authRepo: repo,
+	}
 }
 
 func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest) (dto.RegisterDataResponse, error) {
@@ -37,17 +41,17 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 	}
 
 	// cek panjang password
-	if len(req.Password) < 6 {
-		return resData, fmt.Errorf("%w: password minimal 6 karakter", ErrInvalidInput)
+	if len(req.Password) < 8 {
+		return resData, fmt.Errorf("%w: password minimal 8 karakter", ErrInvalidInput)
 	}
 
-	// Cek Duplikasi Email
+	// cek duplikasi email
 	exists, err := s.authRepo.CheckEmailExists(ctx, req.Email)
 	if err != nil {
 		return resData, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 	if exists {
-		return resData, ErrEmailAlreadyExists // Kembalikan sentinel error secara langsung
+		return resData, ErrEmailAlreadyExists
 	}
 
 	// Hash Password
@@ -70,11 +74,11 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 
 	// Simpan ke Tabel Profiles dan Wallets dengan ID Baru
 	if err := s.authRepo.CreateProfile(ctx, tx, newUser.ID); err != nil {
-		return resData, fmt.Errorf("%w: gagal membuat profil: %v", ErrInternalServer, err)
+		return resData, fmt.Errorf("%w: gagal membuat profile: %v", ErrInternalServer, err)
 	}
 
 	if err := s.authRepo.CreateWallet(ctx, tx, newUser.ID); err != nil {
-		return resData, fmt.Errorf("%w: gagal membuat dompet: %v", ErrInternalServer, err)
+		return resData, fmt.Errorf("%w: gagal membuat wallet: %v", ErrInternalServer, err)
 	}
 
 	// Commit Transaksi jika semua sukses
@@ -92,40 +96,68 @@ func (s *AuthService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 	return resData, nil
 }
 
-func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (string, error) {
-	// validasi input kosong
+func (s *AuthService) LoginUser(ctx context.Context, req dto.LoginRequest) (string, bool, error) {
 	if req.Email == "" || req.Password == "" {
-		return "", fmt.Errorf("%w: email dan password wajib diisi", ErrInvalidInput)
+		return "", false, fmt.Errorf("%w: email dan password wajib diisi", ErrInvalidInput)
 	}
 
 	user, err := s.authRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
-		return "", ErrInvalidCredentials
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, ErrInvalidCredentials
+		}
+		return "", false, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 
-	// Cek Validitas Password
 	match, err := pkg.VerifyHash(req.Password, user.Password)
 	if err != nil || !match {
-		return "", ErrInvalidCredentials
+		return "", false, ErrInvalidCredentials
 	}
 
 	// buat JWT Token
 	token, err := pkg.GenerateToken(int(user.ID))
 	if err != nil {
-		return "", fmt.Errorf("%w: gagal membuat sesi login", ErrInternalServer)
+		return "", false, fmt.Errorf("%w: gagal membuat sesi login", ErrInternalServer)
 	}
+	hasPin := user.Pin != ""
 
-	return token, nil
+	return token, hasPin, nil
 }
 
-func (s *AuthService) Logout(ctx context.Context, token string) error {
+func (s *AuthService) Logout(ctx context.Context, userID int, token string) error {
 	if token == "" {
 		return fmt.Errorf("%w: token kosong", ErrInvalidInput)
 	}
+	expiresIn := 12 * time.Hour
 
-	err := s.authRepo.AddTokenToBlacklist(ctx, token)
+	err := s.authRepo.AddTokenToBlacklist(ctx, userID, token, expiresIn)
 	if err != nil {
 		return fmt.Errorf("%w: gagal memproses logout", ErrInternalServer)
+	}
+
+	return nil
+}
+
+func (s *AuthService) CreatePin(ctx context.Context, userID int, req dto.CreatePinRequest) error {
+	currentPin, err := s.authRepo.GetUserPin(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return errors.New("user tidak ditemukan")
+		}
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+
+	if currentPin != "" {
+		return fmt.Errorf("%w: PIN sudah dibuat, silakan gunakan menu ubah PIN", ErrInvalidInput)
+	}
+
+	hashedPin, err := pkg.HashData(req.Pin)
+	if err != nil {
+		return fmt.Errorf("%w: gagal memproses PIN", ErrInternalServer)
+	}
+
+	if err := s.authRepo.CreatePin(ctx, userID, hashedPin); err != nil {
+		return fmt.Errorf("%w: gagal menyimpan PIN", ErrInternalServer)
 	}
 
 	return nil
