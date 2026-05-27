@@ -107,28 +107,26 @@ func (r *userRepository) UpdatePin(ctx context.Context, userID int, newPin strin
 }
 
 func (r *userRepository) FindReceivers(ctx context.Context, userID int, search string, limit int, offset int) ([]dto.ReceiverResponse, int, error) {
-	var receivers []dto.ReceiverResponse = []dto.ReceiverResponse{} // Inisiasi array kosong
+	var receivers []dto.ReceiverResponse = []dto.ReceiverResponse{}
 	var totalRecords int
 	searchParam := "%" + search + "%"
 
-	// Hitung Total Data
 	countQuery := `
 		SELECT COUNT(u.id)
 		FROM users u
 		JOIN profiles p ON u.id = p.user_id
-		WHERE u.id != $1 AND (u.email ILIKE $2 OR p.phone ILIKE $2 OR p.full_name ILIKE $2)`
+		WHERE u.id != $1 AND (p.phone ILIKE $2 OR p.full_name ILIKE $2)`
 
 	err := r.db.QueryRow(ctx, countQuery, userID, searchParam).Scan(&totalRecords)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// ambil Data dengan Limit dan Offset
 	dataQuery := `
 		SELECT u.id, p.full_name, u.email, p.phone, p.photo
 		FROM users u
 		JOIN profiles p ON u.id = p.user_id
-		WHERE u.id != $1 AND (u.email ILIKE $2 OR p.phone ILIKE $2 OR p.full_name ILIKE $2)
+		WHERE u.id != $1 AND (p.phone ILIKE $2 OR p.full_name ILIKE $2)
 		ORDER BY p.full_name ASC
 		LIMIT $3 OFFSET $4`
 
