@@ -23,7 +23,7 @@ type EditProfileRequest struct {
 
 type EditPasswordRequest struct {
 	OldPassword string `json:"old_password" binding:"required"`
-	NewPassword string `json:"new_password" binding:"required,min=6"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
 }
 
 type EditPinRequest struct {
@@ -31,23 +31,20 @@ type EditPinRequest struct {
 	NewPin string `json:"new_pin" binding:"required,len=6"`
 }
 
-// DTO untuk Parameter dari URL (?search=...&page=...&limit=...)
 type ReceiverFilterParam struct {
 	Search string `form:"search"`
 	Page   int    `form:"page,default=1" binding:"omitempty,min=1"`
 	Limit  int    `form:"limit,default=10" binding:"omitempty,min=1,max=100"`
 }
 
-// ReceiverResponse mencerminkan kolom dari tabel 'profiles' dan 'users'
 type ReceiverResponse struct {
-	ID       int    `json:"id"`        // users.id
-	FullName string `json:"full_name"` // profiles.full_name
-	Email    string `json:"email"`     // users.email
-	Phone    string `json:"phone"`     // profiles.phone
-	Photo    string `json:"photo"`     // profiles.photo
+	ID       int    `json:"id"`
+	FullName string `json:"full_name"`
+	Email    string `json:"email"`
+	Phone    string `json:"phone"`
+	Photo    string `json:"photo"`
 }
 
-// PaginationMeta untuk informasi halaman
 type PaginationMeta struct {
 	CurrentPage  int `json:"current_page"`
 	TotalPage    int `json:"total_page"`
@@ -55,7 +52,6 @@ type PaginationMeta struct {
 	Limit        int `json:"limit"`
 }
 
-// ReceiverListResponse untuk balasan akhir dari endpoint GET /users/receivers
 type ReceiverListResponse struct {
 	Receivers []ReceiverResponse `json:"receivers"`
 	Meta      PaginationMeta     `json:"meta"`
