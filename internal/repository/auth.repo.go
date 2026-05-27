@@ -2,10 +2,13 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/aqilknz/backend-ewallet/internal/model"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type AuthRepository interface {
@@ -14,26 +17,32 @@ type AuthRepository interface {
 	CreateProfile(ctx context.Context, tx pgx.Tx, userID uint) error
 	CreateWallet(ctx context.Context, tx pgx.Tx, userID uint) error
 	GetUserByEmail(ctx context.Context, email string) (model.User, error)
-	AddTokenToBlacklist(ctx context.Context, token string) error
-	IsTokenBlacklisted(ctx context.Context, token string) bool
+	AddTokenToBlacklist(ctx context.Context, userID int, token string, expiresIn time.Duration) error
+	IsTokenBlacklisted(ctx context.Context, userID int, token string) bool
+	CreatePin(ctx context.Context, userID int, pinHash string) error
+	GetUserPin(ctx context.Context, userID int) (string, error)
 }
 
 type authRepository struct {
-	db *pgxpool.Pool
+	db    *pgxpool.Pool
+	redis *redis.Client
 }
 
-func NewAuthRepository(db *pgxpool.Pool) AuthRepository {
-	return &authRepository{db: db}
+func NewAuthRepository(db *pgxpool.Pool, redis *redis.Client) AuthRepository {
+	return &authRepository{
+		db:    db,
+		redis: redis,
+	}
 }
 
-func (r *authRepository) CheckEmailExists(ctx context.Context, email string) (bool, error) {
+func (ar *authRepository) CheckEmailExists(ctx context.Context, email string) (bool, error) {
 	sql := `SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)`
 	var exists bool
-	err := r.db.QueryRow(ctx, sql, email).Scan(&exists)
+	err := ar.db.QueryRow(ctx, sql, email).Scan(&exists)
 	return exists, err
 }
 
-func (r *authRepository) CreateUser(ctx context.Context, tx pgx.Tx, email, password string) (model.User, error) {
+func (ar *authRepository) CreateUser(ctx context.Context, tx pgx.Tx, email, password string) (model.User, error) {
 	sql := `INSERT INTO users (email, password, pin, created_at, updated_at) VALUES ($1, $2, '', NOW(), NOW()) RETURNING id, email, created_at, updated_at`
 	args := []any{email, password}
 
@@ -47,46 +56,54 @@ func (r *authRepository) CreateUser(ctx context.Context, tx pgx.Tx, email, passw
 	return user, err
 }
 
-func (r *authRepository) CreateProfile(ctx context.Context, tx pgx.Tx, userID uint) error {
+func (ar *authRepository) CreateProfile(ctx context.Context, tx pgx.Tx, userID uint) error {
 	sql := `INSERT INTO profiles (user_id, full_name, phone, photo) VALUES ($1, '', '', '')`
 	args := []any{userID}
 	_, err := tx.Exec(ctx, sql, args...)
 	return err
 }
 
-func (r *authRepository) CreateWallet(ctx context.Context, tx pgx.Tx, userID uint) error {
+func (ar *authRepository) CreateWallet(ctx context.Context, tx pgx.Tx, userID uint) error {
 	sql := `INSERT INTO wallets (user_id, balance) VALUES ($1, 0)`
 	args := []any{userID}
 	_, err := tx.Exec(ctx, sql, args...)
 	return err
 }
 
-func (r *authRepository) GetUserByEmail(ctx context.Context, email string) (model.User, error) {
-	sql := `SELECT id, email, password FROM users WHERE email = $1`
+func (ar *authRepository) GetUserByEmail(ctx context.Context, email string) (model.User, error) {
+	sql := `SELECT id, email, password, pin FROM users WHERE email = $1`
 	args := []any{email}
 
 	var user model.User
-	err := r.db.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Email, &user.Password)
+	err := ar.db.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Email, &user.Password, &user.Pin)
 	return user, err
 }
 
-func (r *authRepository) AddTokenToBlacklist(ctx context.Context, token string) error {
-	// ON CONFLICT DO NOTHING mencegah error jika user menekan logout 2x berturut-turut
-	_, err := r.db.Exec(ctx, `
-		INSERT INTO token_blacklists (token, created_at) 
-		VALUES ($1, NOW()) 
-		ON CONFLICT (token) DO NOTHING`, token)
-	return err
+func (ar *authRepository) AddTokenToBlacklist(ctx context.Context, userID int, token string, expiresIn time.Duration) error {
+	key := fmt.Sprintf("blacklist:user:%d:token:%s", userID, token)
+	return ar.redis.Set(ctx, key, "revoked", expiresIn).Err()
 }
 
-func (r *authRepository) IsTokenBlacklisted(ctx context.Context, token string) bool {
-	var exists bool
-	err := r.db.QueryRow(ctx, `
-		SELECT EXISTS(SELECT 1 FROM token_blacklists WHERE token = $1)
-	`, token).Scan(&exists)
+func (r *authRepository) IsTokenBlacklisted(ctx context.Context, userID int, token string) bool {
+	key := fmt.Sprintf("blacklist:user:%d:token:%s", userID, token)
+	err := r.redis.Get(ctx, key).Err()
 
-	if err != nil {
+	if err == redis.Nil {
 		return false
 	}
-	return exists
+
+	return true
+}
+
+func (ar *authRepository) GetUserPin(ctx context.Context, userID int) (string, error) {
+	sql := `SELECT pin FROM users WHERE id = $1`
+	var pin string
+	err := ar.db.QueryRow(ctx, sql, userID).Scan(&pin)
+	return pin, err
+}
+
+func (ar *authRepository) CreatePin(ctx context.Context, userID int, pinHash string) error {
+	sql := `UPDATE users SET pin = $1, updated_at = NOW() WHERE id = $2`
+	_, err := ar.db.Exec(ctx, sql, pinHash, userID)
+	return err
 }
