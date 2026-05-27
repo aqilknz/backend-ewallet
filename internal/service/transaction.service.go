@@ -3,10 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
+	"github.com/aqilknz/backend-ewallet/pkg"
+)
+
+var (
+	ErrPinNotSet = errors.New("silahkan buat pin terlebih dahulu")
 )
 
 type TransactionService struct {
@@ -18,27 +25,64 @@ func NewTransactionService(txRepo repository.TransactionRepository) *Transaction
 }
 
 func (s *TransactionService) TopUp(ctx context.Context, userID int, req dto.TopUpRequest) (dto.TopUpResponse, error) {
-	return s.txRepo.TopUp(ctx, userID, req)
+	tax := 4000
+	discount := 0
+
+	subTotal := req.Amount + tax - discount
+
+	res, err := s.txRepo.CreateTopUp(ctx, userID, req, tax, discount, subTotal)
+	if err != nil {
+		return dto.TopUpResponse{}, fmt.Errorf("gagal memproses top up: %v", err)
+	}
+
+	return res, nil
 }
 
 func (s *TransactionService) Transfer(ctx context.Context, senderID int, req dto.TransferRequest) (dto.TransferResponse, error) {
-	receiverID, err := s.txRepo.GetUserIDByEmail(ctx, req.ReceiverEmail)
+	hashedPin, err := s.txRepo.GetSenderPin(ctx, senderID)
 	if err != nil {
-		return dto.TransferResponse{}, errors.New("email penerima tidak ditemukan")
-	}
-	if senderID == receiverID {
-		return dto.TransferResponse{}, errors.New("tidak bisa mentransfer ke akun sendiri")
+		return dto.TransferResponse{}, fmt.Errorf("gagal memverifikasi pengguna: %v", err)
 	}
 
-	return s.txRepo.Transfer(ctx, senderID, receiverID, req)
+	if hashedPin == "" {
+		return dto.TransferResponse{}, ErrPinNotSet
+	}
+
+	match, err := pkg.VerifyHash(req.Pin, hashedPin)
+	if err != nil || !match {
+		return dto.TransferResponse{}, errors.New("PIN transaksi salah")
+	}
+
+	receiverID, err := strconv.Atoi(req.Receiver_ID)
+	if err != nil {
+		return dto.TransferResponse{}, errors.New("format ID penerima tidak valid")
+	}
+
+	if senderID == receiverID {
+		return dto.TransferResponse{}, errors.New("tidak dapat melakukan transfer ke akun sendiri")
+	}
+
+	res, err := s.txRepo.CreateTransfer(ctx, senderID, receiverID, req.Amount, req.Notes)
+	if err != nil {
+		return dto.TransferResponse{}, err
+	}
+
+	return res, nil
 }
 
 func (s *TransactionService) GetHistory(ctx context.Context, userID int, param dto.TransactionHistoryFilterParam) (dto.TransactionHistoryResponse, error) {
+	if param.Page <= 0 {
+		param.Page = 1
+	}
+	if param.Limit <= 0 {
+		param.Limit = 10
+	}
+
 	offset := (param.Page - 1) * param.Limit
 
 	histories, totalRecords, err := s.txRepo.GetHistory(ctx, userID, param.Search, param.Limit, offset)
 	if err != nil {
-		return dto.TransactionHistoryResponse{}, err
+		return dto.TransactionHistoryResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 
 	totalPage := int(math.Ceil(float64(totalRecords) / float64(param.Limit)))
@@ -58,5 +102,11 @@ func (s *TransactionService) GetReport(ctx context.Context, userID int, param dt
 	if param.Type == "" || param.Type == "both" {
 		param.Type = "all"
 	}
-	return s.txRepo.GetReport(ctx, userID, param)
+
+	report, err := s.txRepo.GetReport(ctx, userID, param)
+	if err != nil {
+		return nil, fmt.Errorf("%w: gagal mengambil laporan", ErrInternalServer)
+	}
+
+	return report, nil
 }
