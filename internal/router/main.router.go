@@ -8,18 +8,20 @@ import (
 	"github.com/aqilknz/backend-ewallet/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // InitRouter adalah fungsi utama yang dipanggil oleh main.go
-func InitRouter(app *gin.Engine, db *pgxpool.Pool) {
-	// 1. Pasang Middleware CORS Global
+func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client) {
+	// Pasang Middleware CORS Global
 	app.Use(middleware.CORSMiddleware)
+	app.Static("/img/profiles", "./public/img/profiles")
 	app.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// untuk auth
-	authRepo := repository.NewAuthRepository(db)
+	authRepo := repository.NewAuthRepository(db, redis)
 	authService := service.NewAuthService(db, authRepo)
 	authController := controller.NewAuthController(authService)
 
