@@ -3,11 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/pkg"
+	"github.com/jackc/pgx/v5"
+)
+
+var (
+	ErrUserNotFound = errors.New("pengguna tidak ditemukan")
 )
 
 type UserService struct {
@@ -19,95 +25,134 @@ func NewUserService(repo repository.UserRepository) *UserService {
 }
 
 func (s *UserService) GetProfile(ctx context.Context, userID int) (dto.UserProfileResponse, error) {
-	return s.userRepo.GetProfile(ctx, userID)
+	profile, err := s.userRepo.GetProfile(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return dto.UserProfileResponse{}, ErrUserNotFound
+		}
+		return dto.UserProfileResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+	return profile, nil
 }
 
 func (s *UserService) GetDashboard(ctx context.Context, userID int) (dto.DashboardResponse, error) {
-	return s.userRepo.GetDashboard(ctx, userID)
+	data, err := s.userRepo.GetDashboard(ctx, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return dto.DashboardResponse{}, ErrUserNotFound
+		}
+		return dto.DashboardResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+	return data, nil
 }
 
 func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditProfileRequest, photoURL *string) (dto.UserProfileResponse, error) {
-
-	// 1. Eksekusi Update ke Repository menggunakan pointer
 	err := s.userRepo.EditProfile(ctx, userID, req.Fullname, req.Phone, photoURL)
 	if err != nil {
-		return dto.UserProfileResponse{}, err
+		return dto.UserProfileResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 
 	updatedProfile, err := s.userRepo.GetProfile(ctx, userID)
 	if err != nil {
-		return dto.UserProfileResponse{}, err
+		return dto.UserProfileResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 	return updatedProfile, nil
 }
 
 func (s *UserService) EditPassword(ctx context.Context, userID int, req dto.EditPasswordRequest) error {
-	if len(req.NewPassword) < 6 {
-		return errors.New("password baru minimal harus 6 karakter")
+	if len(req.NewPassword) < 8 {
+		return fmt.Errorf("%w: password baru minimal harus 8 karakter", ErrInvalidInput)
 	}
+
 	oldHash, _, err := s.userRepo.GetPasswordAndPin(ctx, userID)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
+
 	match, _ := pkg.VerifyHash(req.OldPassword, oldHash)
 	if !match {
-		return errors.New("password lama salah")
+		return fmt.Errorf("%w: password lama salah", ErrInvalidCredentials)
 	}
 
 	newHash, err := pkg.HashData(req.NewPassword)
 	if err != nil {
-		return errors.New("gagal memproses password baru")
+		return fmt.Errorf("%w: gagal memproses password baru", ErrInternalServer)
 	}
 
-	return s.userRepo.UpdatePassword(ctx, userID, newHash)
+	if err := s.userRepo.UpdatePassword(ctx, userID, newHash); err != nil {
+		return fmt.Errorf("%w: gagal menyimpan password", ErrInternalServer)
+	}
+	return nil
 }
 
 func (s *UserService) EditPin(ctx context.Context, userID int, req dto.EditPinRequest) error {
 	if len(req.NewPin) < 6 {
-		return errors.New("pin minimal 6 digit")
+		return fmt.Errorf("%w: pin minimal 6 digit", ErrInvalidInput)
 	}
+
 	_, oldPinHash, err := s.userRepo.GetPasswordAndPin(ctx, userID)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 
 	if oldPinHash != "" {
 		match, _ := pkg.VerifyHash(req.OldPin, oldPinHash)
 		if !match {
-			return errors.New("PIN lama salah")
+			return fmt.Errorf("%w: PIN lama salah", ErrInvalidInput)
 		}
 	}
 
 	newPinHash, err := pkg.HashData(req.NewPin)
 	if err != nil {
-		return errors.New("gagal memproses PIN baru")
+		return fmt.Errorf("%w: gagal memproses PIN baru", ErrInternalServer)
 	}
 
-	return s.userRepo.UpdatePin(ctx, userID, newPinHash)
+	if err := s.userRepo.UpdatePin(ctx, userID, newPinHash); err != nil {
+		return fmt.Errorf("%w: gagal menyimpan PIN", ErrInternalServer)
+	}
+	return nil
 }
 
 func (s *UserService) CheckPin(ctx context.Context, userID int, req dto.CheckPinRequest) error {
 	_, PinHash, err := s.userRepo.GetPasswordAndPin(ctx, userID)
 	if err != nil {
-		return errors.New("user tidak ditemukan")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrUserNotFound
+		}
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
+
 	if PinHash == "" {
-		return errors.New("Pin belum diatur, buatlah terlebih dahulu")
+		return fmt.Errorf("%w: PIN belum diatur, buatlah terlebih dahulu", ErrInvalidInput)
 	}
+
 	match, _ := pkg.VerifyHash(req.Pin, PinHash)
 	if !match {
-		return errors.New("Pin salah")
+		return fmt.Errorf("%w: PIN salah", ErrInvalidCredentials)
 	}
+
 	return nil
 }
 
 func (s *UserService) FindReceivers(ctx context.Context, userID int, param dto.ReceiverFilterParam) (dto.ReceiverListResponse, error) {
+	if param.Page <= 0 {
+		param.Page = 1
+	}
+	if param.Limit <= 0 {
+		param.Limit = 10
+	}
+
 	offset := (param.Page - 1) * param.Limit
 
-	// Ambil data dari repository
 	receivers, totalRecords, err := s.userRepo.FindReceivers(ctx, userID, param.Search, param.Limit, offset)
 	if err != nil {
-		return dto.ReceiverListResponse{}, err
+		return dto.ReceiverListResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
 
 	totalPage := int(math.Ceil(float64(totalRecords) / float64(param.Limit)))
