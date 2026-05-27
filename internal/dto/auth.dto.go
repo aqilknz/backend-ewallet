@@ -4,12 +4,15 @@ import "time"
 
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
+	Password string `json:"password" binding:"required,min=8"`
 }
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Password string `json:"password" binding:"required,min=8"`
+}
+type CreatePinRequest struct {
+	Pin string `json:"pin" binding:"required,len=6,numeric"`
 }
 
 type RegisterDataResponse struct {
@@ -21,7 +24,7 @@ type RegisterDataResponse struct {
 }
 
 type AuthResponse struct {
-	Message string `json:"message"`
-	Token   string `json:"token,omitempty"`
-	Data    any    `json:"data,omitempty"`
+	Message string `json:"message,omitempty"`
+	Token   string `json:"token"`
+	HasPin  bool   `json:"has_pin"`
 }
