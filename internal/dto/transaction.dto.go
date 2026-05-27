@@ -3,18 +3,12 @@ package dto
 import "time"
 
 type CheckPinRequest struct {
-	Pin string `json: pin binding:"required, len=6, numeric"`
+	Pin string `json:"pin" binding:"required,len=6,numeric"`
 }
 
-// ==========================================
-// DTO TOPUP
-// ==========================================
 type TopUpRequest struct {
-	Amount          int `json:"amount" binding:"required,gt=0"`
+	Amount          int `json:"amount" binding:"required,min=10000"`
 	PaymentMethodID int `json:"payment_method_id" binding:"required"`
-	Discount        int `json:"discount"`
-	Tax             int `json:"tax"`
-	SubTotal        int `json:"sub_total" binding:"required"`
 }
 
 type TopUpResponse struct {
@@ -28,30 +22,25 @@ type TopUpResponse struct {
 	CreatedAt       time.Time `json:"created_at"`
 }
 
-// ==========================================
-// DTO TRANSFER
-// ==========================================
 type TransferRequest struct {
-	ReceiverEmail string `json:"receiver_email" binding:"required,email"`
-	Amount        int    `json:"amount" binding:"required,gt=0"`
-	Notes         string `json:"notes"`
+	Receiver_ID string `json:"receiver_id" binding:"required"`
+	Amount      int    `json:"amount" binding:"required,min=10000"`
+	Notes       string `json:"notes" binding:"omitempty,max=100"`
+	Pin         string `json:"pin" binding:"required,len=6"`
 }
 
 type TransferResponse struct {
-	TransactionID  int       `json:"transaction_id"`
-	SenderID       int       `json:"sender_id"`
-	CounterpartyID int       `json:"counterparty_id"`
-	Amount         int       `json:"amount"`
-	Status         string    `json:"status"`
-	Notes          string    `json:"notes"`
-	CreatedAt      time.Time `json:"created_at"`
+	TransactionID int       `json:"transaction_id"`
+	SenderID      int       `json:"sender_id"`
+	ReceiverID    int       `json:"receiver_id"`
+	Amount        int       `json:"amount"`
+	Status        string    `json:"status"`
+	Notes         string    `json:"notes"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
-// ==========================================
-// DTO HISTORY & REPORT
-// ==========================================
 type TransactionHistoryFilterParam struct {
-	Search string `form:"search"`
+	Search string `form:"search" binding:"omitempty"`
 	Page   int    `form:"page,default=1" binding:"omitempty,min=1"`
 	Limit  int    `form:"limit,default=10" binding:"omitempty,min=1,max=100"`
 }
@@ -59,18 +48,11 @@ type TransactionHistoryFilterParam struct {
 type TransactionHistoryItem struct {
 	ID              int       `json:"id"`
 	Amount          int       `json:"amount"`
-	TransactionType string    `json:"transaction_type"` // topup / transfer
-	FlowType        string    `json:"flow_type"`        // topup / income / expense
+	TransactionType string    `json:"transaction_type"`
+	FlowType        string    `json:"flow_type"`
 	Description     string    `json:"description"`
 	CreatedAt       time.Time `json:"created_at"`
 }
-
-// type PaginationMeta struct {
-// 	CurrentPage  int `json:"current_page"`
-// 	TotalPage    int `json:"total_page"`
-// 	TotalRecords int `json:"total_records"`
-// 	Limit        int `json:"limit"`
-// }
 
 type TransactionHistoryResponse struct {
 	Transactions []TransactionHistoryItem `json:"transactions"`
@@ -79,8 +61,8 @@ type TransactionHistoryResponse struct {
 
 type TransactionReportFilterParam struct {
 	Type      string `form:"type" binding:"omitempty,oneof=income expense both"`
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
+	StartDate string `form:"start_date" binding:"omitempty,datetime=2006-01-02"`
+	EndDate   string `form:"end_date" binding:"omitempty,datetime=2006-01-02"`
 }
 
 type TransactionReportItem struct {
