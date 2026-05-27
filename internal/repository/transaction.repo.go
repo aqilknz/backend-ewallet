@@ -10,9 +10,9 @@ import (
 )
 
 type TransactionRepository interface {
-	TopUp(ctx context.Context, userID int, req dto.TopUpRequest) (dto.TopUpResponse, error)
-	Transfer(ctx context.Context, senderID int, receiverID int, req dto.TransferRequest) (dto.TransferResponse, error)
-	GetUserIDByEmail(ctx context.Context, email string) (int, error)
+	CreateTopUp(ctx context.Context, userID int, req dto.TopUpRequest, tax, discount, subTotal int) (dto.TopUpResponse, error)
+	CreateTransfer(ctx context.Context, senderID int, receiverID int, amount int, notes string) (dto.TransferResponse, error)
+	GetSenderPin(ctx context.Context, userID int) (string, error)
 	GetHistory(ctx context.Context, userID int, search string, limit int, offset int) ([]dto.TransactionHistoryItem, int, error)
 	GetReport(ctx context.Context, userID int, param dto.TransactionReportFilterParam) ([]dto.TransactionReportItem, error)
 }
@@ -25,121 +25,117 @@ func NewTransactionRepository(db *pgxpool.Pool) TransactionRepository {
 	return &transactionRepository{db: db}
 }
 
-func (r *transactionRepository) GetUserIDByEmail(ctx context.Context, email string) (int, error) {
-	var id int
-	err := r.db.QueryRow(ctx, `SELECT id FROM users WHERE email = $1`, email).Scan(&id)
-	return id, err
+func (tr *transactionRepository) GetSenderPin(ctx context.Context, userID int) (string, error) {
+	var pin string
+	err := tr.db.QueryRow(ctx, "SELECT COALESCE(pin, '') FROM users WHERE id = $1", userID).Scan(&pin)
+	return pin, err
 }
 
-func (r *transactionRepository) TopUp(ctx context.Context, userID int, req dto.TopUpRequest) (dto.TopUpResponse, error) {
+func (tr *transactionRepository) CreateTopUp(ctx context.Context, userID int, req dto.TopUpRequest, tax, discount, subTotal int) (dto.TopUpResponse, error) {
 	var res dto.TopUpResponse
-	tx, err := r.db.Begin(ctx)
+
+	tx, err := tr.db.Begin(ctx)
 	if err != nil {
 		return res, err
 	}
 	defer tx.Rollback(ctx)
 
-	// Insert ke tabel transactions
-	err = tx.QueryRow(ctx, `
-		INSERT INTO transactions (user_id, amount, type, status, updated_at)
-		VALUES ($1, $2, 'topup', 'success', NOW())
-		RETURNING id, amount, status, created_at`,
-		userID, req.Amount).Scan(&res.TransactionID, &res.Amount, &res.Status, &res.CreatedAt)
+	sqlBase := `
+		INSERT INTO transactions (user_id, amount, type, status, created_at, updated_at) 
+		VALUES ($1, $2, 'topup', 'success', NOW(), NOW()) 
+		RETURNING id, created_at
+	`
+	err = tx.QueryRow(ctx, sqlBase, userID, req.Amount).Scan(&res.TransactionID, &res.CreatedAt)
 	if err != nil {
 		return res, err
 	}
 
-	// Insert ke tabel topup_details
-	_, err = tx.Exec(ctx, `
-		INSERT INTO topup_details (transaction_id, payment_method_id, discount, tax, sub_total)
-		VALUES ($1, $2, $3, $4, $5)`,
-		res.TransactionID, req.PaymentMethodID, req.Discount, req.Tax, req.SubTotal)
+	sqlDetail := `
+		INSERT INTO topup_details (transaction_id, payment_method_id, discount, tax, sub_total) 
+		VALUES ($1, $2, $3, $4, $5)
+	`
+	_, err = tx.Exec(ctx, sqlDetail, res.TransactionID, req.PaymentMethodID, discount, tax, subTotal)
 	if err != nil {
 		return res, err
 	}
 
-	// Update saldo wallet langsung ke balance
-	_, err = tx.Exec(ctx, `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`, req.Amount, userID)
+	sqlWallet := `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`
+	_, err = tx.Exec(ctx, sqlWallet, req.Amount, userID)
 	if err != nil {
 		return res, err
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return res, err
+	}
+
+	res.Amount = req.Amount
 	res.PaymentMethodID = req.PaymentMethodID
-	res.Discount = req.Discount
-	res.Tax = req.Tax
-	res.SubTotal = req.SubTotal
+	res.Tax = tax
+	res.Discount = discount
+	res.SubTotal = subTotal
+	res.Status = "success"
 
-	return res, tx.Commit(ctx)
+	return res, nil
 }
 
-func (r *transactionRepository) Transfer(ctx context.Context, senderID int, receiverID int, req dto.TransferRequest) (dto.TransferResponse, error) {
+func (tr *transactionRepository) CreateTransfer(ctx context.Context, senderID int, receiverID int, amount int, notes string) (dto.TransferResponse, error) {
 	var res dto.TransferResponse
-	tx, err := r.db.Begin(ctx)
+
+	tx, err := tr.db.Begin(ctx)
 	if err != nil {
 		return res, err
 	}
 	defer tx.Rollback(ctx)
 
-	// Cek saldo pengirim
-	var currentBalance int
-	err = tx.QueryRow(ctx, `SELECT balance FROM wallets WHERE user_id = $1 FOR UPDATE`, senderID).Scan(&currentBalance)
-	if err != nil || currentBalance < req.Amount {
+	sqlDeduct := `UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2 AND balance >= $1`
+	cmdTag, err := tx.Exec(ctx, sqlDeduct, amount, senderID)
+	if err != nil {
+		return res, err
+	}
+	if cmdTag.RowsAffected() == 0 {
 		return res, errors.New("saldo tidak mencukupi")
 	}
 
-	// Transaksi Pengirim (TRANSFER_OUT)
-	err = tx.QueryRow(ctx, `
-		INSERT INTO transactions (user_id, amount, type, status, updated_at)
-		VALUES ($1, $2, 'transfer_out', 'success', NOW())
-		RETURNING id, user_id, amount, status, created_at`,
-		senderID, req.Amount).Scan(&res.TransactionID, &res.SenderID, &res.Amount, &res.Status, &res.CreatedAt)
+	sqlAdd := `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`
+	cmdTagReceiver, err := tx.Exec(ctx, sqlAdd, amount, receiverID)
+	if err != nil {
+		return res, err
+	}
+	if cmdTagReceiver.RowsAffected() == 0 {
+		return res, errors.New("user penerima tidak ditemukan")
+	}
+
+	sqlBase := `
+		INSERT INTO transactions (user_id, amount, type, status, created_at, updated_at) 
+		VALUES ($1, $2, 'transfer_out', 'success', NOW(), NOW()) 
+		RETURNING id, created_at
+	`
+	err = tx.QueryRow(ctx, sqlBase, senderID, amount).Scan(&res.TransactionID, &res.CreatedAt)
 	if err != nil {
 		return res, err
 	}
 
-	// Detail untuk pengirim (countryparty nya itu penerima)
-	_, err = tx.Exec(ctx, `
-		INSERT INTO transfer_details (transaction_id, counterparty_id, notes) 
-		VALUES ($1, $2, $3)`,
-		res.TransactionID, receiverID, req.Notes)
+	sqlDetail := `
+		INSERT INTO transfer_details (transaction_id, receiver_id, notes) 
+		VALUES ($1, $2, $3)
+	`
+	_, err = tx.Exec(ctx, sqlDetail, res.TransactionID, receiverID, notes)
 	if err != nil {
 		return res, err
 	}
 
-	//Transaksi Penerima (transfer_in)
-	var receiverTxID int
-	err = tx.QueryRow(ctx, `
-		INSERT INTO transactions (user_id, amount, type, status, updated_at)
-		VALUES ($1, $2, 'transfer_in', 'success', NOW())
-		RETURNING id`,
-		receiverID, req.Amount).Scan(&receiverTxID)
-	if err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return res, err
 	}
 
-	// Detail untuk penerima (countryparty nya itu pengirim)
-	_, err = tx.Exec(ctx, `
-		INSERT INTO transfer_details (transaction_id, counterparty_id, notes) 
-		VALUES ($1, $2, $3)`,
-		receiverTxID, senderID, req.Notes)
-	if err != nil {
-		return res, err
-	}
+	res.SenderID = senderID
+	res.ReceiverID = receiverID
+	res.Amount = amount
+	res.Notes = notes
+	res.Status = "success"
 
-	// Potong saldo pengirim dan tambah saldo penerima
-	_, err = tx.Exec(ctx, `UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2`, req.Amount, senderID)
-	if err != nil {
-		return res, err
-	}
-	_, err = tx.Exec(ctx, `UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`, req.Amount, receiverID)
-	if err != nil {
-		return res, err
-	}
-
-	res.CounterpartyID = receiverID
-	res.Notes = req.Notes
-
-	return res, tx.Commit(ctx)
+	return res, nil
 }
 
 func (r *transactionRepository) GetHistory(ctx context.Context, userID int, search string, limit int, offset int) ([]dto.TransactionHistoryItem, int, error) {
@@ -150,8 +146,9 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 	baseQuery := `
 		FROM transactions t
 		LEFT JOIN transfer_details td ON t.id = td.transaction_id
-		LEFT JOIN profiles p_counterparty ON td.counterparty_id = p_counterparty.user_id
-		WHERE t.user_id = $1
+		LEFT JOIN profiles p_sender ON t.user_id = p_sender.user_id
+		LEFT JOIN profiles p_receiver ON td.receiver_id = p_receiver.user_id
+		WHERE (t.user_id = $1 OR td.receiver_id = $1)
 	`
 
 	countQuery := fmt.Sprintf(`
@@ -159,8 +156,8 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 		AND (
 			CASE 
 				WHEN t.type = 'topup' THEN 'Topup Saldo'
-				WHEN t.type = 'transfer_out' THEN CONCAT('Transfer keluar ke ', p_counterparty.full_name)
-				WHEN t.type = 'transfer_in' THEN CONCAT('Transfer masuk dari ', p_counterparty.full_name)
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END ILIKE $2
 		)`, baseQuery)
 
@@ -173,24 +170,28 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 		SELECT 
 			t.id, 
 			t.amount, 
-			t.type::text,
 			CASE 
 				WHEN t.type = 'topup' THEN 'topup'
-				WHEN t.type = 'transfer_out' THEN 'expense'
-				WHEN t.type = 'transfer_in' THEN 'income'
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN 'transfer_out'
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN 'transfer_in'
+			END as transaction_type,
+			CASE 
+				WHEN t.type = 'topup' THEN 'topup'
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN 'expense'
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN 'income'
 			END as flow_type,
 			CASE 
 				WHEN t.type = 'topup' THEN 'Topup Saldo'
-				WHEN t.type = 'transfer_out' THEN CONCAT('Transfer keluar ke ', p_counterparty.full_name)
-				WHEN t.type = 'transfer_in' THEN CONCAT('Transfer masuk dari ', p_counterparty.full_name)
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END as description,
 			t.created_at
 		%s
 		AND (
 			CASE 
 				WHEN t.type = 'topup' THEN 'Topup Saldo'
-				WHEN t.type = 'transfer_out' THEN CONCAT('Transfer keluar ke ', p_counterparty.full_name)
-				WHEN t.type = 'transfer_in' THEN CONCAT('Transfer masuk dari ', p_counterparty.full_name)
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END ILIKE $2
 		)
 		ORDER BY t.created_at DESC LIMIT $3 OFFSET $4`, baseQuery)
@@ -215,14 +216,17 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 
 func (r *transactionRepository) GetReport(ctx context.Context, userID int, param dto.TransactionReportFilterParam) ([]dto.TransactionReportItem, error) {
 	var reports []dto.TransactionReportItem = []dto.TransactionReportItem{}
+
 	query := `
 		SELECT 
 			TO_CHAR(DATE(t.created_at), 'YYYY-MM-DD') AS date,
-			SUM(CASE WHEN $2 IN ('all', 'income') AND t.type = 'transfer_in' THEN t.amount ELSE 0 END) AS total_income,
-			SUM(CASE WHEN $2 IN ('all', 'expense') AND t.type = 'transfer_out' THEN t.amount ELSE 0 END) AS total_expense
+			SUM(CASE WHEN $2 IN ('all', 'income') AND t.type = 'transfer_out' AND td.receiver_id = $1 THEN t.amount ELSE 0 END) AS total_income,
+			SUM(CASE WHEN $2 IN ('all', 'expense') AND t.type = 'transfer_out' AND t.user_id = $1 THEN t.amount ELSE 0 END) AS total_expense
 		FROM transactions t
-		WHERE t.user_id = $1
+		LEFT JOIN transfer_details td ON t.id = td.transaction_id
+		WHERE (t.user_id = $1 OR td.receiver_id = $1)
 	`
+
 	args := []any{userID, param.Type}
 	argCount := 2
 
