@@ -14,4 +14,6 @@ func RegisterAuthRoutes(rg *gin.RouterGroup, authController *controller.AuthCont
 	authGroup.POST("/create-pin", middleware.RequireAuth(authRepo), authController.CreatePin)
 	authGroup.POST("", authController.Login)
 	authGroup.DELETE("/logout", middleware.RequireAuth(authRepo), authController.Logout)
+	authGroup.POST("/check-email", authController.CheckEmail)
+	authGroup.POST("/update-password", authController.UpdatePassword)
 }
