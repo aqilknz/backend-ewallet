@@ -171,3 +171,62 @@ func (ac *AuthController) CreatePin(ctx *gin.Context) {
 	}
 	response.JSONCreated[any](ctx, nil, "PIN berhasil dibuat")
 }
+
+// Check Email for Forgot Password
+//
+//	@Summary		Check if email exists
+//	@Description	verify email if exist for forgot password
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body body		dto.CheckEmailRequest true "check email payload"
+//	@Success		200 {object}	dto.Response[any]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		404 {object}	dto.Response[any]
+//	@Failure		500 {object}	dto.Response[any]
+//	@Router			/auth/check-email [post]
+func (ac *AuthController) CheckEmail(ctx *gin.Context) {
+	var req dto.CheckEmailRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
+		return
+	}
+
+	err := ac.authService.CheckEmail(ctx.Request.Context(), req)
+	if err != nil {
+		response.JSONNotFound(ctx, "Email tidak terdaftar di sistem", err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "Email ditemukan. Silakan masukkan password baru.")
+}
+
+// Update Password
+//
+//	@Summary		Update user password
+//	@Description	set a new password for the user after email verification
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body body		dto.UpdatePasswordRequest true "update password payload"
+//	@Success		200 {object}	dto.Response[any]
+//	@Failure		400 {object}	dto.Response[any]
+//	@Failure		500 {object}	dto.Response[any]
+//	@Router			/auth/update-password [post]
+func (ac *AuthController) UpdatePassword(ctx *gin.Context) {
+	var req dto.UpdatePasswordRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, err.Error())
+		return
+	}
+
+	err := ac.authService.UpdatePassword(ctx.Request.Context(), req)
+	if err != nil {
+		response.JSONInternalServerError(ctx, err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "Password berhasil diperbarui! Silakan login.")
+}
