@@ -17,3 +17,6 @@ migrate-force:
 
 print-db-url:
 	@echo "$(DATABASE_URL)"
+
+seed:
+	@psql "$(DATABASE_URL)" -f db/seeds/seed.sql
