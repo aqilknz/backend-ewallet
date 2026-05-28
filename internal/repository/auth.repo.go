@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -21,6 +22,7 @@ type AuthRepository interface {
 	IsTokenBlacklisted(ctx context.Context, userID int, token string) bool
 	CreatePin(ctx context.Context, userID int, pinHash string) error
 	GetUserPin(ctx context.Context, userID int) (string, error)
+	UpdatePassword(ctx context.Context, email string, hashedPassword string) error
 }
 
 type authRepository struct {
@@ -76,6 +78,9 @@ func (ar *authRepository) GetUserByEmail(ctx context.Context, email string) (mod
 
 	var user model.User
 	err := ar.db.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Email, &user.Password, &user.Pin)
+	if err == pgx.ErrNoRows {
+		return user, errors.New("user not found")
+	}
 	return user, err
 }
 
@@ -106,4 +111,18 @@ func (ar *authRepository) CreatePin(ctx context.Context, userID int, pinHash str
 	sql := `UPDATE users SET pin = $1, updated_at = NOW() WHERE id = $2`
 	_, err := ar.db.Exec(ctx, sql, pinHash, userID)
 	return err
+}
+
+func (ar *authRepository) UpdatePassword(ctx context.Context, email string, hashedPassword string) error {
+	sqlQuery := `UPDATE users SET password = $1, updated_at = NOW() WHERE email = $2`
+
+	result, err := ar.db.Exec(ctx, sqlQuery, hashedPassword, email)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("gagal menyimpan perubahan ke database (email tidak ditemukan)")
+	}
+
+	return nil
 }
