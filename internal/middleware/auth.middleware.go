@@ -22,7 +22,7 @@ func RequireAuth(authRepo repository.AuthRepository) gin.HandlerFunc {
 
 		userID, err := pkg.VerifyToken(tokenString)
 		if err != nil {
-			response.JSONUnauthorized(ctx, "Sesi tidak valid", "Token tidak valid atau sudah kadaluarsa")
+			response.JSONUnauthorized(ctx, "Sesi tidak valid", "")
 			ctx.Abort()
 			return
 		}
