@@ -93,6 +93,7 @@ func (uc *UserController) GetDashboard(ctx *gin.Context) {
 //	@Param          fullname    formData    string  false   "Update Fullname"
 //	@Param          phone       formData    string  false   "Update Phone"
 //	@Param          picture     formData    file    false   "Update Profile Picture (Max 2MB)"
+//  @Param          delete_picture  formData    boolean false   "Delete Profile Picture"
 //	@Success        200         {object}    dto.Response[dto.UserProfileResponse]
 //	@Failure        400         {object}    dto.Response[any]
 //	@Failure        401         {object}    dto.Response[any]
@@ -110,6 +111,7 @@ func (uc *UserController) EditProfile(ctx *gin.Context) {
 	}
 
 	var pictureURL *string
+    // deletePicture := ctx.PostForm("delete_picture") == "true"
 
 	if req.Picture != nil {
 		const maxUploadSize = 2 * 1024 * 1024
@@ -141,7 +143,7 @@ func (uc *UserController) EditProfile(ctx *gin.Context) {
 		pictureURL = &generatedURL
 	}
 
-	data, err := uc.userService.EditProfile(ctx.Request.Context(), userID, req, pictureURL)
+	data, err := uc.userService.EditProfile(ctx.Request.Context(), userID, req, pictureURL, req.DeletePicture)
 	if err != nil {
 		if errors.Is(err, service.ErrInvalidInput) {
 			response.JSONUnprocessableEntity(ctx, "Gagal memperbarui profil", err.Error())
