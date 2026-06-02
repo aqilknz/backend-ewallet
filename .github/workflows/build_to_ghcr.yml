@@ -1,0 +1,17 @@
+name: Build And Publish to GHCR
+on:
+  push:
+    branches: master
+
+jobs:
+  Build_And_Publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Build And Publish ${{github.repository}}
+        uses: macbre/push-to-ghcr@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          registry: ghcr.io
+          image_name: ${{ github.repository_owner }}/backend-ewallet
