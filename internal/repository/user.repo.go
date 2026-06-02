@@ -41,28 +41,29 @@ func (r *userRepository) GetProfile(ctx context.Context, userID int) (dto.UserPr
 func (r *userRepository) GetDashboard(ctx context.Context, userID int) (dto.DashboardResponse, error) {
 	var res dto.DashboardResponse
 
-	// ambil Saldo
+	// amvil saldo wallet
 	err := r.db.QueryRow(ctx, `SELECT balance FROM wallets WHERE user_id = $1`, userID).Scan(&res.Balance)
 	if err != nil {
 		return res, err
 	}
 
-	// ambil Pemasukan (IN)
+	// income (transfer in)
 	err = r.db.QueryRow(ctx, `
-		SELECT COALESCE(SUM(amount), 0) 
-		FROM transactions 
-		WHERE user_id = $1 AND type = 'transfer_in'`,
-		userID).Scan(&res.Income)
+		SELECT COALESCE(SUM(t.amount), 0) 
+		FROM transactions t
+		JOIN transfer_details td ON t.id = td.transaction_id
+		WHERE t.type = 'transfer_out' AND td.receiver_id = $1
+	`, userID).Scan(&res.Income)
 	if err != nil {
 		return res, err
 	}
 
-	// ambil Pengeluaran (OUT)
+	// transfer out
 	err = r.db.QueryRow(ctx, `
 		SELECT COALESCE(SUM(amount), 0) 
 		FROM transactions 
-		WHERE user_id = $1 AND type = 'transfer_out'`,
-		userID).Scan(&res.Expense)
+		WHERE user_id = $1 AND type = 'transfer_out'
+	`, userID).Scan(&res.Expense)
 	if err != nil {
 		return res, err
 	}
