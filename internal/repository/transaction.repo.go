@@ -146,6 +146,8 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 	baseQuery := `
 		FROM transactions t
 		LEFT JOIN transfer_details td ON t.id = td.transaction_id
+		LEFT JOIN topup_details tud ON t.id = tud.transaction_id
+		LEFT JOIN payment_methods pm ON tud.payment_method_id = pm.id
 		LEFT JOIN profiles p_sender ON t.user_id = p_sender.user_id
 		LEFT JOIN profiles p_receiver ON td.receiver_id = p_receiver.user_id
 		WHERE (t.user_id = $1 OR td.receiver_id = $1)
@@ -155,7 +157,7 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 		SELECT COUNT(t.id) %s 
 		AND (
 			CASE 
-				WHEN t.type = 'topup' THEN 'Topup Saldo'
+				WHEN t.type = 'topup' THEN CONCAT('Topup ', COALESCE(pm.name, 'Saldo'))
 				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
 				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END ILIKE $2
@@ -181,15 +183,27 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN 'income'
 			END as flow_type,
 			CASE 
-				WHEN t.type = 'topup' THEN 'Topup Saldo'
+				WHEN t.type = 'topup' THEN CONCAT('Topup ', COALESCE(pm.name, 'Saldo'))
 				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
 				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END as description,
+			CASE 
+				WHEN t.type = 'topup' THEN '-'
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN COALESCE(p_receiver.phone, '-')
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN COALESCE(p_sender.phone, '-')
+			END as phone,
+            -- TAMBAHAN BARU DI BAWAH INI --
+			CASE 
+				WHEN t.type = 'topup' THEN ''
+				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN COALESCE(p_receiver.photo, '')
+				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN COALESCE(p_sender.photo, '')
+			END as photo,
+            -------------------------------
 			t.created_at
 		%s
 		AND (
 			CASE 
-				WHEN t.type = 'topup' THEN 'Topup Saldo'
+				WHEN t.type = 'topup' THEN CONCAT('Topup ', COALESCE(pm.name, 'Saldo'))
 				WHEN t.type = 'transfer_out' AND t.user_id = $1 THEN CONCAT('Transfer keluar ke ', p_receiver.full_name)
 				WHEN t.type = 'transfer_out' AND td.receiver_id = $1 THEN CONCAT('Transfer masuk dari ', p_sender.full_name)
 			END ILIKE $2
@@ -204,13 +218,12 @@ func (r *transactionRepository) GetHistory(ctx context.Context, userID int, sear
 
 	for rows.Next() {
 		var item dto.TransactionHistoryItem
-		err := rows.Scan(&item.ID, &item.Amount, &item.TransactionType, &item.FlowType, &item.Description, &item.CreatedAt)
+		err := rows.Scan(&item.ID, &item.Amount, &item.TransactionType, &item.FlowType, &item.Description, &item.Phone, &item.Photo, &item.CreatedAt)
 		if err != nil {
 			return nil, 0, err
 		}
 		histories = append(histories, item)
 	}
-
 	return histories, totalRecords, nil
 }
 
