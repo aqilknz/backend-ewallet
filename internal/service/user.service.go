@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
@@ -46,7 +49,20 @@ func (s *UserService) GetDashboard(ctx context.Context, userID int) (dto.Dashboa
 	return data, nil
 }
 
-func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditProfileRequest, photoURL *string) (dto.UserProfileResponse, error) {
+func (s *UserService) EditProfile(ctx context.Context, userID int, req dto.EditProfileRequest, photoURL *string, deletePicture bool) (dto.UserProfileResponse, error) {
+	if deletePicture || (photoURL != nil && *photoURL != "") {
+		oldProfile, err := s.userRepo.GetProfile(ctx, userID)
+		if err == nil && oldProfile.Photo != "" && !strings.HasPrefix(oldProfile.Photo, "http") {
+			filename := filepath.Base(oldProfile.Photo)
+			exactPath := filepath.Join("public", "img", "profiles", filename)
+			_ = os.Remove(exactPath)
+		}
+	}
+
+	if deletePicture && photoURL == nil {
+		emptyPhoto := ""
+		photoURL = &emptyPhoto
+	}
 	err := s.userRepo.EditProfile(ctx, userID, req.Fullname, req.Phone, photoURL)
 	if err != nil {
 		return dto.UserProfileResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
