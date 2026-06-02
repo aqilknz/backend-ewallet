@@ -11,7 +11,7 @@ import (
 // CORSMiddleware adalah fungsi penjaga untuk mengatur siapa saja yang boleh mengakses API
 // "http://127.0.0.1:5500"
 func CORSMiddleware(ctx *gin.Context) {
-	allowedOrigin := []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9000", "http://localhost:6379"}
+	allowedOrigin := []string{"http://localhost:5173", "http://localhost:3000", "http://localhost:9000", "http://localhost:6379", "http://localhost:200"}
 
 	currentOrigin := ctx.GetHeader("Origin")
 	if slices.Contains(allowedOrigin, currentOrigin) {
