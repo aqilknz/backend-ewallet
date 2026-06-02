@@ -27,7 +27,7 @@ import (
 // @description					Bearer token used for authorization
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading env. \ncause: %s", err.Error())
+		log.Printf("Error loading env. \ncause: %s", err.Error())
 	}
 	// inisialisasi
 	app := gin.Default()
@@ -35,7 +35,7 @@ func main() {
 	// connect ke db
 	db, err := config.ConnectDB(context.Background())
 	if err != nil {
-		log.Fatalf("DB connection error. \ncause: %s", err.Error())
+		log.Printf("DB connection error. \ncause: %s", err.Error())
 	}
 	defer db.Close()
 	log.Println("DB Connected")
@@ -43,7 +43,7 @@ func main() {
 	// connect ke redis
 	redis, err := config.ConnectRedis(context.Background())
 	if err != nil {
-		log.Fatalf("Redis error: %v", err)
+		log.Printf("Redis error: %v", err)
 	}
 	defer redis.Close()
 	log.Println("Redis Connected")
@@ -54,6 +54,6 @@ func main() {
 	// run
 	addr := fmt.Sprintf("%s:%s", os.Getenv("APP_HOST"), os.Getenv("APP_PORT"))
 	if err := app.Run(addr); err != nil {
-		log.Fatalf("Server gagal berjalan: %v", err)
+		log.Printf("Server gagal berjalan: %v", err)
 	}
 }
