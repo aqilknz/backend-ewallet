@@ -1,0 +1,987 @@
+basePath: /ewallet
+definitions:
+  github_com_aqilknz_backend-ewallet_internal_dto.AuthResponse:
+    properties:
+      has_pin:
+        type: boolean
+      message:
+        type: string
+      token:
+        type: string
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.CheckEmailRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.CheckPinRequest:
+    properties:
+      pin:
+        type: string
+    required:
+    - pin
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.CreatePinRequest:
+    properties:
+      pin:
+        type: string
+    required:
+    - pin
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.DashboardResponse:
+    properties:
+      balance:
+        type: integer
+      expense:
+        type: integer
+      income:
+        type: integer
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.EditPasswordRequest:
+    properties:
+      new_password:
+        minLength: 8
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.EditPinRequest:
+    properties:
+      new_pin:
+        type: string
+      old_pin:
+        type: string
+    required:
+    - new_pin
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.PaginationMeta:
+    properties:
+      current_page:
+        type: integer
+      limit:
+        type: integer
+      total_page:
+        type: integer
+      total_records:
+        type: integer
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.ReceiverListResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.PaginationMeta'
+      receivers:
+        items:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.ReceiverResponse'
+        type: array
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.ReceiverResponse:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      id:
+        type: integer
+      phone:
+        type: string
+      photo:
+        type: string
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.RegisterDataResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-any:
+    properties:
+      data: {}
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  ? github_com_aqilknz_backend-ewallet_internal_dto.Response-array_github_com_aqilknz_backend-ewallet_internal_dto_TransactionReportItem
+  : properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TransactionReportItem'
+        type: array
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_AuthResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.AuthResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_DashboardResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.DashboardResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_ReceiverListResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.ReceiverListResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_RegisterDataResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.RegisterDataResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TopUpResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TopUpResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  ? github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TransactionHistoryResponse
+  : properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TransactionHistoryResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TransferResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TransferResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_UserProfileResponse:
+    properties:
+      data:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.UserProfileResponse'
+      error: {}
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TopUpRequest:
+    properties:
+      amount:
+        minimum: 10000
+        type: integer
+      payment_method_id:
+        type: integer
+    required:
+    - amount
+    - payment_method_id
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TopUpResponse:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      discount:
+        type: integer
+      payment_method_id:
+        type: integer
+      status:
+        type: string
+      sub_total:
+        type: integer
+      tax:
+        type: integer
+      transaction_id:
+        type: integer
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TransactionHistoryItem:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      description:
+        type: string
+      flow_type:
+        type: string
+      id:
+        type: integer
+      phone:
+        type: string
+      photo:
+        type: string
+      transaction_type:
+        type: string
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TransactionHistoryResponse:
+    properties:
+      meta:
+        $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.PaginationMeta'
+      transactions:
+        items:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TransactionHistoryItem'
+        type: array
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TransactionReportItem:
+    properties:
+      date:
+        type: string
+      total_expense:
+        type: integer
+      total_income:
+        type: integer
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TransferRequest:
+    properties:
+      amount:
+        minimum: 10000
+        type: integer
+      notes:
+        maxLength: 100
+        type: string
+      pin:
+        type: string
+      receiver_id:
+        type: string
+    required:
+    - amount
+    - pin
+    - receiver_id
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.TransferResponse:
+    properties:
+      amount:
+        type: integer
+      created_at:
+        type: string
+      notes:
+        type: string
+      receiver_id:
+        type: integer
+      sender_id:
+        type: integer
+      status:
+        type: string
+      transaction_id:
+        type: integer
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.UpdatePasswordRequest:
+    properties:
+      email:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - new_password
+    type: object
+  github_com_aqilknz_backend-ewallet_internal_dto.UserProfileResponse:
+    properties:
+      email:
+        type: string
+      full_name:
+        type: string
+      phone:
+        type: string
+      photo:
+        type: string
+    type: object
+host: localhost:9000
+info:
+  contact: {}
+  description: Backend created by Aqil using Gin
+  license:
+    name: MIT
+  title: Backend Ewallet
+  version: "1.0"
+paths:
+  /auth:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and get JWT token dengan pengecekan status PIN
+      parameters:
+      - description: login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_AuthResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      summary: Login a user
+      tags:
+      - auth
+  /auth/check-email:
+    post:
+      consumes:
+      - application/json
+      description: verify email if exist for forgot password
+      parameters:
+      - description: check email payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.CheckEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      summary: Check if email exists
+      tags:
+      - auth
+  /auth/create-pin:
+    post:
+      consumes:
+      - application/json
+      description: Setup the initial 6-digit PIN for a new user
+      parameters:
+      - description: Create PIN payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.CreatePinRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Create user transaction PIN
+      tags:
+      - auth
+  /auth/logout:
+    delete:
+      description: Invalidate current JWT token by adding it to Redis blacklist
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Logout User
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: create a new user for e-wallet
+      parameters:
+      - description: register payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_RegisterDataResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      summary: Register a user
+      tags:
+      - auth
+  /auth/update-password:
+    post:
+      consumes:
+      - application/json
+      description: set a new password for the user after email verification
+      parameters:
+      - description: update password payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.UpdatePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      summary: Update user password
+      tags:
+      - auth
+  /users/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Detailed dashboard information of user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_DashboardResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user dashboard
+      tags:
+      - users
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: Detailed profile information of the login user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_UserProfileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Get user profile
+      tags:
+      - users
+    patch:
+      consumes:
+      - multipart/form-data
+      description: edit user detail fullname, phone and picture
+      parameters:
+      - description: Update Fullname
+        in: formData
+        name: fullname
+        type: string
+      - description: Update Phone
+        in: formData
+        name: phone
+        type: string
+      - description: Update Profile Picture (Max 2MB)
+        in: formData
+        name: picture
+        type: file
+      - description: Delete Profile Picture
+        in: formData
+        name: delete_picture
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_UserProfileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Edit user profile data
+      tags:
+      - users
+  /users/profile/password:
+    patch:
+      consumes:
+      - application/json
+      description: Update the account password by verifying the old password first
+      parameters:
+      - description: Update password payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.EditPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Change user password
+      tags:
+      - users
+  /users/profile/pin:
+    patch:
+      consumes:
+      - application/json
+      description: Update the 6-digit PIN used for validating transactions
+      parameters:
+      - description: Update PIN payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.EditPinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Setup or change user transaction PIN
+      tags:
+      - users
+  /users/receivers:
+    get:
+      consumes:
+      - application/json
+      description: Search other users by name, email, or phone with pagination
+      parameters:
+      - description: Search by name, email, phone
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_ReceiverListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Find receivers for transfer
+      tags:
+      - users
+  /users/transaction/checkpin:
+    post:
+      consumes:
+      - application/json
+      description: Check if the provided 6-digit PIN matches the user's PIN before
+        authorizing a transaction
+      parameters:
+      - description: Check PIN payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.CheckPinRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Verify PIN for transaction
+      tags:
+      - transaction
+  /users/transaction/history:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve user's transaction history (topup, transfer) with search
+        and pagination
+      parameters:
+      - description: Search in description
+        in: query
+        name: search
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TransactionHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Get transaction history
+      tags:
+      - transaction
+  /users/transaction/report:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve aggregated transaction data grouped by date for dashboard
+        charts
+      parameters:
+      - default: both
+        description: Filter by type (income, expense, both)
+        enum:
+        - income
+        - expense
+        - both
+        in: query
+        name: type
+        type: string
+      - description: Start date (YYYY-MM-DD) e.g., 2026-05-01
+        in: query
+        name: start_date
+        type: string
+      - description: End date (YYYY-MM-DD) e.g., 2026-05-31
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-array_github_com_aqilknz_backend-ewallet_internal_dto_TransactionReportItem'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: Get transaction report for graph
+      tags:
+      - transaction
+  /users/transaction/topup:
+    post:
+      consumes:
+      - application/json
+      description: Add balance to user's wallet
+      parameters:
+      - description: Top Up Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TopUpRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TopUpResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: User Top Up
+      tags:
+      - transaction
+  /users/transaction/transfer:
+    post:
+      consumes:
+      - application/json
+      description: transfer saldo to receiver with pin
+      parameters:
+      - description: Transfer Payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.TransferRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-github_com_aqilknz_backend-ewallet_internal_dto_TransferResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_aqilknz_backend-ewallet_internal_dto.Response-any'
+      security:
+      - ApiKeyAuth: []
+      summary: User Transfer
+      tags:
+      - transaction
+securityDefinitions:
+  ApiKeyAuth:
+    description: Bearer token used for authorization
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
