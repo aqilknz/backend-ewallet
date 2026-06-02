@@ -17,7 +17,7 @@ import (
 func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client) {
 	// Pasang Middleware CORS Global
 	app.Use(middleware.CORSMiddleware)
-	app.Static("/img/profiles", "./public/img/profiles")
+	app.Static("/ewallet/img/profiles", "./public/img/profiles")
 	app.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// untuk auth
