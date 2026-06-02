@@ -19,6 +19,7 @@ type EditProfileRequest struct {
 	Fullname *string               `form:"fullname"`
 	Phone    *string               `form:"phone"`
 	Picture  *multipart.FileHeader `form:"picture" binding:"omitempty"`
+	DeletePicture bool `form:"delete_picture"`
 }
 
 type EditPasswordRequest struct {
