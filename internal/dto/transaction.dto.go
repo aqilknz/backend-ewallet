@@ -51,6 +51,8 @@ type TransactionHistoryItem struct {
 	TransactionType string    `json:"transaction_type"`
 	FlowType        string    `json:"flow_type"`
 	Description     string    `json:"description"`
+	Phone           string    `json:"phone,omitempty"`
+	Photo           string    `json:"photo,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
