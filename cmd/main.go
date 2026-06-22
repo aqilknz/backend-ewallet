@@ -8,6 +8,7 @@ import (
 
 	"github.com/aqilknz/backend-ewallet/internal/config"
 	"github.com/aqilknz/backend-ewallet/internal/router"
+	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -47,9 +48,17 @@ func main() {
 	}
 	defer redis.Close()
 	log.Println("Redis Connected")
+	cfg := config.LoadConfig()
+	mailer := pkg.NewGomailMailer(
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUser,
+		cfg.SMTPPassword,
+		cfg.SMTPFromEmail,
+	)
 
 	// install router
-	router.InitRouter(app, db, redis)
+	router.InitRouter(app, db, redis, mailer)
 
 	// run
 	addr := fmt.Sprintf("%s:%s", os.Getenv("APP_HOST"), os.Getenv("APP_PORT"))
