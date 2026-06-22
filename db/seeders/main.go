@@ -4,77 +4,192 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 
+	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
-	"golang.org/x/crypto/bcrypt"
 )
 
+// Seeder ini membuat:
+//   - 5 payment methods
+//   - 10 user dummy (email user1@mail.com .. user10@mail.com, password "pass1234")
+//   - profile + wallet untuk tiap user
+//   - 20 transaksi dummy (campuran topup & transfer), lengkap dengan detail relasinya
+//
+// Password & PIN di-hash menggunakan argon2id (pkg.HashData), supaya konsisten
+// dengan pkg.VerifyHash yang dipakai di internal/service/auth.service.go & user.service.go.
 func main() {
-	// connect ke database
 	godotenv.Load(".env")
+
 	dbDSN := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_NAME"),
+		os.Getenv("POSTGRES_USER"), os.Getenv("POSTGRES_PASSWORD"),
+		os.Getenv("POSTGRES_HOST"), os.Getenv("POSTGRES_PORT"), os.Getenv("POSTGRES_DB"),
 	)
 
 	db, err := sql.Open("postgres", dbDSN)
 	if err != nil {
-		log.Fatal("Gagal koneksi:", err)
+		log.Fatal("Gagal koneksi ke database:", err)
 	}
 	defer db.Close()
 
-	tx, _ := db.Begin()
+	if err := db.Ping(); err != nil {
+		log.Fatal("Database belum siap menerima koneksi:", err)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal("Gagal memulai transaction:", err)
+	}
 	defer tx.Rollback()
 
-	// insert payment methods
+	// ── Payment Methods ──────────────────────────────────────────────
 	paymentMethods := []string{"Bank Rakyat Indonesia", "DANA", "Bank Central Asia", "GoPay", "OVO"}
 	for _, pm := range paymentMethods {
-		tx.Exec(`INSERT INTO payment_methods (name) VALUES ($1) ON CONFLICT DO NOTHING`, pm)
+		if _, err := tx.Exec(`INSERT INTO payment_methods (name) VALUES ($1) ON CONFLICT DO NOTHING`, pm); err != nil {
+			log.Fatal("Gagal seed payment_methods:", err)
+		}
 	}
 
-	// Generate 10 Users & Relasinya (Profiles & Wallets)
-	hashPass, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
-	hashPin, _ := bcrypt.GenerateFromPassword([]byte("123456"), bcrypt.DefaultCost)
+	// ── Users + Profiles + Wallets ───────────────────────────────────
+	hashedPassword, err := pkg.HashData("pass1234")
+	if err != nil {
+		log.Fatal("Gagal hash password:", err)
+	}
+	hashedPin, err := pkg.HashData("123456")
+	if err != nil {
+		log.Fatal("Gagal hash pin:", err)
+	}
 
-	// nyimpan user yang nanti dibuat
-	var userIDs []int
+	const totalUsers = 10
+	userIDs := make([]int, 0, totalUsers)
+	startingBalance := make(map[int]int)
 
-	for i := 1; i <= 10; i++ {
+	for i := 1; i <= totalUsers; i++ {
 		var userID int
 
-		// Insert User dan ambil ID-nya
-		tx.QueryRow(`INSERT INTO users (email, password, pin) VALUES ($1, $2, $3) RETURNING id`,
-			fmt.Sprintf("user%d@mail.com", i), string(hashPass), string(hashPin),
+		err := tx.QueryRow(
+			`INSERT INTO users (email, password, pin, created_at, updated_at) 
+			 VALUES ($1, $2, $3, NOW(), NOW()) RETURNING id`,
+			fmt.Sprintf("user%d@mail.com", i), hashedPassword, hashedPin,
 		).Scan(&userID)
-
-		// simpan ID untuk transaksi nanti
+		if err != nil {
+			log.Fatal("Gagal insert user:", err)
+		}
 		userIDs = append(userIDs, userID)
 
-		// insert di profile dan wallets
-		tx.Exec(`INSERT INTO profiles (user_id, full_name, phone, photo) VALUES ($1, $2, $3, $4)`,
-			userID, fmt.Sprintf("Pengguna Ke-%d", i), fmt.Sprintf("0812345678%d", i), fmt.Sprintf("https://i.pravatar.cc/150?u=%d", userID))
+		// Avatar pakai pravatar.cc - URL gambar publik yang valid & konsisten
+		photoURL := fmt.Sprintf("https://i.pravatar.cc/150?img=%d", i)
 
-		tx.Exec(`INSERT INTO wallets (user_id, balance) VALUES ($1, $2)`, userID, i*1000000)
+		if _, err := tx.Exec(
+			`INSERT INTO profiles (user_id, full_name, phone, photo, created_at, updated_at) 
+			 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+			userID, fmt.Sprintf("Pengguna Ke-%d", i), fmt.Sprintf("0812345678%02d", i), photoURL,
+		); err != nil {
+			log.Fatal("Gagal insert profile:", err)
+		}
+
+		initialBalance := 1000000 * i // user1 = 1jt, user2 = 2jt, dst (variasi saldo awal)
+		if _, err := tx.Exec(
+			`INSERT INTO wallets (user_id, balance, created_at, updated_at) VALUES ($1, $2, NOW(), NOW())`,
+			userID, initialBalance,
+		); err != nil {
+			log.Fatal("Gagal insert wallet:", err)
+		}
+		startingBalance[userID] = initialBalance
 	}
 
-	// simulasi transaksi topup dan transfer
-	var topupID, tfID int
+	// ── 20 Transaksi Dummy ────────────────────────────────────────────
+	// Distribusi: 8 topup, 12 transfer (yang otomatis menghasilkan
+	// pasangan transfer_out + transfer_in agar history/report query konsisten).
+	notesPool := []string{
+		"Bayar makan siang", "Patungan kado", "Bayar listrik", "Titip jajan",
+		"Split bill", "Bayar parkir", "Ganti ongkir", "Bayar utang",
+	}
 
-	// topup
-	tx.QueryRow(`INSERT INTO transactions (user_id, amount, type, status) VALUES ($1, 500000, 'topup', 'success') RETURNING id`, userIDs[0]).Scan(&topupID)
-	tx.Exec(`INSERT INTO topup_details (transaction_id, payment_method_id, discount, tax, sub_total) VALUES ($1, 1, 0, 2000, 502000)`, topupID)
+	transactionCount := 0
+	const totalTransactions = 20
+	const topupCount = 8
 
-	tx.QueryRow(`INSERT INTO transactions (user_id, amount, type, status) VALUES ($1, 150000, 'transfer_out', 'success') RETURNING id`, userIDs[0]).Scan(&tfID)
-	tx.Exec(`INSERT INTO transfer_details (transaction_id, receiver_id, notes) VALUES ($1, $2, 'Makan siang')`, tfID, userIDs[1])
+	for transactionCount < topupCount {
+		userID := userIDs[rand.Intn(totalUsers)]
+		paymentMethodID := rand.Intn(len(paymentMethods)) + 1
+		amount := (rand.Intn(20) + 1) * 50000 // kelipatan 50rb, 50rb - 1jt
+		tax := 4000
+		discount := 0
+		subTotal := amount + tax - discount
 
-	tx.Exec(`INSERT INTO transactions (user_id, amount, type, status) VALUES ($1, 150000, 'transfer_in', 'success')`, userIDs[1])
+		var txID int
+		err := tx.QueryRow(
+			`INSERT INTO transactions (user_id, amount, type, status, created_at, updated_at) 
+			 VALUES ($1, $2, 'topup', 'success', NOW() - (random() * INTERVAL '30 days'), NOW()) 
+			 RETURNING id`,
+			userID, amount,
+		).Scan(&txID)
+		if err != nil {
+			log.Fatal("Gagal insert transaksi topup:", err)
+		}
 
-	// nyimpan perubahan
+		if _, err := tx.Exec(
+			`INSERT INTO topup_details (transaction_id, payment_method_id, discount, tax, sub_total) 
+			 VALUES ($1, $2, $3, $4, $5)`,
+			txID, paymentMethodID, discount, tax, subTotal,
+		); err != nil {
+			log.Fatal("Gagal insert topup_details:", err)
+		}
+
+		if _, err := tx.Exec(`UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`, amount, userID); err != nil {
+			log.Fatal("Gagal update wallet (topup):", err)
+		}
+
+		transactionCount++
+	}
+
+	for transactionCount < totalTransactions {
+		senderID := userIDs[rand.Intn(totalUsers)]
+		receiverID := userIDs[rand.Intn(totalUsers)]
+		for receiverID == senderID {
+			receiverID = userIDs[rand.Intn(totalUsers)]
+		}
+		amount := (rand.Intn(10) + 1) * 25000 // kelipatan 25rb, 25rb - 250rb
+		notes := notesPool[rand.Intn(len(notesPool))]
+
+		var txID int
+		err := tx.QueryRow(
+			`INSERT INTO transactions (user_id, amount, type, status, created_at, updated_at) 
+			 VALUES ($1, $2, 'transfer_out', 'success', NOW() - (random() * INTERVAL '30 days'), NOW()) 
+			 RETURNING id`,
+			senderID, amount,
+		).Scan(&txID)
+		if err != nil {
+			log.Fatal("Gagal insert transaksi transfer:", err)
+		}
+
+		if _, err := tx.Exec(
+			`INSERT INTO transfer_details (transaction_id, receiver_id, notes) VALUES ($1, $2, $3)`,
+			txID, receiverID, notes,
+		); err != nil {
+			log.Fatal("Gagal insert transfer_details:", err)
+		}
+
+		if _, err := tx.Exec(`UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2`, amount, senderID); err != nil {
+			log.Fatal("Gagal update wallet (sender):", err)
+		}
+		if _, err := tx.Exec(`UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2`, amount, receiverID); err != nil {
+			log.Fatal("Gagal update wallet (receiver):", err)
+		}
+
+		transactionCount++
+	}
+
 	if err := tx.Commit(); err != nil {
-		log.Fatal("Gagal menyimpan data:", err)
+		log.Fatal("Gagal menyimpan seed data:", err)
 	}
 
-	fmt.Println("✅ Seeding Sukses! Silakan login di React dengan 'user1@mail.com' / 'password123'")
+	fmt.Println("Seeding selesai.")
+	fmt.Println("- 10 user dummy dibuat (user1@mail.com .. user10@mail.com)")
+	fmt.Println("- Password semua user: pass1234")
+	fmt.Println("- PIN semua user: 123456")
+	fmt.Println("- 20 transaksi dummy dibuat (8 topup, 12 transfer)")
 }
