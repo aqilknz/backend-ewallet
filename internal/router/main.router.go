@@ -6,6 +6,7 @@ import (
 	"github.com/aqilknz/backend-ewallet/internal/middleware"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/internal/service"
+	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -14,7 +15,7 @@ import (
 )
 
 // InitRouter adalah fungsi utama yang dipanggil oleh main.go
-func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client) {
+func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client, mailer pkg.Mailer) {
 	// Pasang Middleware CORS Global
 	app.Use(middleware.CORSMiddleware)
 	app.Static("/ewallet/img/profiles", "./public/img/profiles")
@@ -22,7 +23,7 @@ func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client) {
 
 	// untuk auth
 	authRepo := repository.NewAuthRepository(db, redis)
-	authService := service.NewAuthService(db, authRepo)
+	authService := service.NewAuthService(db, authRepo, redis, mailer)
 	authController := controller.NewAuthController(authService)
 
 	// untuk user dashboard
