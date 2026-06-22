@@ -2,17 +2,20 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -21,10 +24,11 @@ var (
 
 type UserService struct {
 	userRepo repository.UserRepository
+	rdb      *redis.Client
 }
 
-func NewUserService(repo repository.UserRepository) *UserService {
-	return &UserService{userRepo: repo}
+func NewUserService(repo repository.UserRepository, rdb *redis.Client) *UserService {
+	return &UserService{userRepo: repo, rdb: rdb}
 }
 
 func (s *UserService) GetProfile(ctx context.Context, userID int) (dto.UserProfileResponse, error) {
@@ -39,12 +43,24 @@ func (s *UserService) GetProfile(ctx context.Context, userID int) (dto.UserProfi
 }
 
 func (s *UserService) GetDashboard(ctx context.Context, userID int) (dto.DashboardResponse, error) {
+	cacheKey := fmt.Sprintf("dashboard:%d", userID)
+
+	cachedData, err := s.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var res dto.DashboardResponse
+		if err := json.Unmarshal([]byte(cachedData), &res); err == nil {
+			return res, nil
+		}
+	}
 	data, err := s.userRepo.GetDashboard(ctx, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return dto.DashboardResponse{}, ErrUserNotFound
 		}
 		return dto.DashboardResponse{}, fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+	if jsonData, err := json.Marshal(data); err == nil {
+		s.rdb.Set(ctx, cacheKey, jsonData, 15*time.Minute)
 	}
 	return data, nil
 }

@@ -27,12 +27,12 @@ func InitRouter(app *gin.Engine, db *pgxpool.Pool, redis *redis.Client) {
 
 	// untuk user dashboard
 	userRepo := repository.NewUserRepository(db)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, redis)
 	userController := controller.NewUserController(userService)
 
 	// untuk user transactions
 	txRepo := repository.NewTransactionRepository(db)
-	txService := service.NewTransactionService(txRepo)
+	txService := service.NewTransactionService(txRepo, redis)
 	txController := controller.NewTransactionController(txService)
 
 	api := app.Group("/ewallet")

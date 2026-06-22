@@ -10,6 +10,7 @@ import (
 	"github.com/aqilknz/backend-ewallet/internal/dto"
 	"github.com/aqilknz/backend-ewallet/internal/repository"
 	"github.com/aqilknz/backend-ewallet/pkg"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -18,10 +19,11 @@ var (
 
 type TransactionService struct {
 	txRepo repository.TransactionRepository
+	rdb    *redis.Client
 }
 
-func NewTransactionService(txRepo repository.TransactionRepository) *TransactionService {
-	return &TransactionService{txRepo: txRepo}
+func NewTransactionService(txRepo repository.TransactionRepository, rdb *redis.Client) *TransactionService {
+	return &TransactionService{txRepo: txRepo, rdb: rdb}
 }
 
 func (s *TransactionService) TopUp(ctx context.Context, userID int, req dto.TopUpRequest) (dto.TopUpResponse, error) {
@@ -34,6 +36,7 @@ func (s *TransactionService) TopUp(ctx context.Context, userID int, req dto.TopU
 	if err != nil {
 		return dto.TopUpResponse{}, fmt.Errorf("gagal memproses top up: %v", err)
 	}
+	s.rdb.Del(ctx, fmt.Sprintf("dashboard:%d", userID))
 
 	return res, nil
 }
@@ -66,6 +69,7 @@ func (s *TransactionService) Transfer(ctx context.Context, senderID int, req dto
 	if err != nil {
 		return dto.TransferResponse{}, err
 	}
+	s.rdb.Del(ctx, fmt.Sprintf("dashboard:%d", senderID), fmt.Sprintf("dashboard:%d", receiverID))
 
 	return res, nil
 }
