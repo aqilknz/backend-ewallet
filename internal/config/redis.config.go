@@ -7,13 +7,10 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 )
 
 func ConnectRedis(ctx context.Context) (*redis.Client, error) {
-	_ = godotenv.Load()
-
 	host := os.Getenv("REDIS_HOST")
 	port := os.Getenv("REDIS_PORT")
 	username := os.Getenv("REDIS_USERNAME")
