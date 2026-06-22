@@ -11,6 +11,7 @@ import (
 	"github.com/aqilknz/backend-ewallet/pkg"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -23,12 +24,16 @@ var (
 type AuthService struct {
 	db       *pgxpool.Pool
 	authRepo repository.AuthRepository
+	rdb      *redis.Client
+	mailer   pkg.Mailer
 }
 
-func NewAuthService(db *pgxpool.Pool, repo repository.AuthRepository) *AuthService {
+func NewAuthService(db *pgxpool.Pool, repo repository.AuthRepository, rdb *redis.Client, mailer pkg.Mailer) *AuthService {
 	return &AuthService{
 		db:       db,
 		authRepo: repo,
+		rdb:      rdb,
+		mailer:   mailer,
 	}
 }
 
@@ -179,6 +184,84 @@ func (s *AuthService) UpdatePassword(ctx context.Context, req dto.UpdatePassword
 		}
 		return fmt.Errorf("%w: %v", ErrInternalServer, err)
 	}
+
+	return nil
+}
+
+func (s *AuthService) ForgotPassword(ctx context.Context, req dto.ForgotPasswordRequest) error {
+	exists, err := s.authRepo.CheckEmailExists(ctx, req.Email)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+	if !exists {
+		return errors.New("email tidak terdaftar di sistem")
+	}
+
+	cooldownKey := fmt.Sprintf("cooldown_otp:%s", req.Email)
+	if s.rdb.Get(ctx, cooldownKey).Err() == nil {
+		return errors.New("harap tunggu 60 detik sebelum meminta OTP baru")
+	}
+
+	otpCode, err := pkg.GenerateOTP()
+	if err != nil {
+		return fmt.Errorf("gagal membuat OTP: %w", err)
+	}
+
+	cacheKey := fmt.Sprintf("otp:%s", req.Email)
+	err = s.rdb.Set(ctx, cacheKey, otpCode, 5*time.Minute).Err()
+	if err != nil {
+		return fmt.Errorf("gagal menyimpan OTP ke cache: %w", err)
+	}
+
+	s.rdb.Set(ctx, cooldownKey, "true", 60*time.Second)
+
+	err = s.mailer.SendResetPasswordOTP(req.Email, otpCode)
+	if err != nil {
+		s.rdb.Del(ctx, cooldownKey)
+		return fmt.Errorf("gagal mengirim email: %w", err)
+	}
+
+	return nil
+}
+
+func (s *AuthService) VerifyOTP(ctx context.Context, req dto.VerifyOTPRequest) error {
+	cacheKey := fmt.Sprintf("otp:%s", req.Email)
+	savedOTP, err := s.rdb.Get(ctx, cacheKey).Result()
+	if errors.Is(err, redis.Nil) {
+		return errors.New("kode OTP sudah kedaluwarsa atau tidak valid")
+	} else if err != nil {
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+
+	// validasi otp
+	if savedOTP != req.OTP {
+		return errors.New("kode OTP yang Anda masukkan salah")
+	}
+	s.rdb.Del(ctx, cacheKey)
+	allowKey := fmt.Sprintf("reset_allowed:%s", req.Email)
+	s.rdb.Set(ctx, allowKey, "true", 5*time.Minute)
+
+	return nil
+}
+
+func (s *AuthService) ResetPassword(ctx context.Context, req dto.ResetPasswordRequest) error {
+	allowKey := fmt.Sprintf("reset_allowed:%s", req.Email)
+
+	allowed, err := s.rdb.Get(ctx, allowKey).Result()
+	if errors.Is(err, redis.Nil) || allowed != "true" {
+		return errors.New("akses ditolak, silakan lakukan verifikasi OTP terlebih dahulu")
+	}
+
+	hashedPassword, err := pkg.HashData(req.NewPassword)
+	if err != nil {
+		return fmt.Errorf("%w: gagal mengamankan password baru", ErrInternalServer)
+	}
+	err = s.authRepo.UpdatePassword(ctx, req.Email, hashedPassword)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrInternalServer, err)
+	}
+
+	s.rdb.Del(ctx, allowKey)
 
 	return nil
 }
