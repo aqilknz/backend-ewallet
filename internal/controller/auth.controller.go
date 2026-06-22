@@ -230,3 +230,99 @@ func (ac *AuthController) UpdatePassword(ctx *gin.Context) {
 
 	response.JSONSuccess[any](ctx, nil, "Password berhasil diperbarui! Silakan login.")
 }
+
+// Forgot Password
+//
+//	@Summary        Request password reset OTP
+//	@Description    Mengirimkan OTP 6-digit ke email yang terdaftar
+//	@Tags           auth
+//	@Accept         json
+//	@Produce        json
+//	@Param          body body       dto.ForgotPasswordRequest true "Forgot password payload"
+//	@Success        200 {object}    dto.Response[any]
+//	@Failure        400 {object}    dto.Response[any]
+//	@Failure        404 {object}    dto.Response[any]
+//	@Failure        500 {object}    dto.Response[any]
+//	@Router         /auth/forgot-password [post]
+func (ac *AuthController) ForgotPassword(ctx *gin.Context) {
+	var req dto.ForgotPasswordRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, "Format email tidak valid")
+		return
+	}
+
+	err := ac.authService.ForgotPassword(ctx.Request.Context(), req)
+	if err != nil {
+		if err.Error() == "email tidak terdaftar" || err.Error() == "email tidak terdaftar di sistem" {
+			response.JSONNotFound(ctx, "Gagal meminta reset", err.Error())
+			return
+		}
+		response.JSONBadRequest(ctx, err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "Kode OTP telah dikirim ke email Anda. Silakan periksa kotak masuk atau spam.")
+}
+
+// Verify OTP
+//
+//	@Summary        Verify password reset OTP
+//	@Description    Memvalidasi kode OTP yang dikirim ke email
+//	@Tags           auth
+//	@Accept         json
+//	@Produce        json
+//	@Param          body body       dto.VerifyOTPRequest true "Verify OTP payload"
+//	@Success        200 {object}    dto.Response[any]
+//	@Failure        400 {object}    dto.Response[any]
+//	@Failure        401 {object}    dto.Response[any]
+//	@Router         /auth/verify-otp [post]
+func (ac *AuthController) VerifyOTP(ctx *gin.Context) {
+	var req dto.VerifyOTPRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, "Data input tidak valid")
+		return
+	}
+
+	err := ac.authService.VerifyOTP(ctx.Request.Context(), req)
+	if err != nil {
+		response.JSONUnauthorized(ctx, "Verifikasi gagal", err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "OTP valid. Silakan buat password baru Anda.")
+}
+
+// Reset Password
+//
+//	@Summary        Reset user password
+//	@Description    Menyimpan password baru setelah verifikasi OTP berhasil
+//	@Tags           auth
+//	@Accept         json
+//	@Produce        json
+//	@Param          body body       dto.ResetPasswordRequest true "Reset password payload"
+//	@Success        200 {object}    dto.Response[any]
+//	@Failure        400 {object}    dto.Response[any]
+//	@Failure        403 {object}    dto.Response[any]
+//	@Router         /auth/reset-password [post]
+func (ac *AuthController) ResetPassword(ctx *gin.Context) {
+	var req dto.ResetPasswordRequest
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		response.JSONBadRequest(ctx, "Format input tidak sesuai. Pastikan password memenuhi syarat.")
+		return
+	}
+	if req.NewPassword != req.ConfirmPassword {
+		response.JSONBadRequest(ctx, "Konfirmasi password tidak cocok dengan password baru")
+		return
+	}
+
+	err := ac.authService.ResetPassword(ctx.Request.Context(), req)
+	if err != nil {
+		response.JSONForbidden(ctx, "Gagal mereset password", err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "Password berhasil diubah. Silakan login menggunakan password baru Anda.")
+}
