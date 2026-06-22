@@ -84,3 +84,12 @@ func JSONUnprocessableEntity(ctx *gin.Context, message string, err string) {
 func JSONNoContent(ctx *gin.Context, message string) {
 	ctx.Status(http.StatusNoContent)
 }
+
+// Status 403 - Forbidden
+func JSONForbidden(ctx *gin.Context, message string, err string) {
+	ctx.JSON(http.StatusForbidden, dto.Response[any]{
+		Success: false,
+		Message: message,
+		Error:   err,
+	})
+}
