@@ -84,22 +84,22 @@ func (uc *UserController) GetDashboard(ctx *gin.Context) {
 
 // Edit Profile
 //
-//	@Summary        Edit user profile data
-//	@Description    edit user detail fullname, phone and picture
-//	@Tags           users
-//	@Accept         mpfd
-//	@Produce        json
-//	@Security       ApiKeyAuth
-//	@Param          fullname    formData    string  false   "Update Fullname"
-//	@Param          phone       formData    string  false   "Update Phone"
-//	@Param          picture     formData    file    false   "Update Profile Picture (Max 2MB)"
-//  @Param          delete_picture  formData    boolean false   "Delete Profile Picture"
-//	@Success        200         {object}    dto.Response[dto.UserProfileResponse]
-//	@Failure        400         {object}    dto.Response[any]
-//	@Failure        401         {object}    dto.Response[any]
-//	@Failure        422         {object}    dto.Response[any]
-//	@Failure        500         {object}    dto.Response[any]
-//	@Router         /users/profile [patch]
+//		@Summary        Edit user profile data
+//		@Description    edit user detail fullname, phone and picture
+//		@Tags           users
+//		@Accept         mpfd
+//		@Produce        json
+//		@Security       ApiKeyAuth
+//		@Param          fullname    formData    string  false   "Update Fullname"
+//		@Param          phone       formData    string  false   "Update Phone"
+//		@Param          picture     formData    file    false   "Update Profile Picture (Max 2MB)"
+//	 @Param          delete_picture  formData    boolean false   "Delete Profile Picture"
+//		@Success        200         {object}    dto.Response[dto.UserProfileResponse]
+//		@Failure        400         {object}    dto.Response[any]
+//		@Failure        401         {object}    dto.Response[any]
+//		@Failure        422         {object}    dto.Response[any]
+//		@Failure        500         {object}    dto.Response[any]
+//		@Router         /users/profile [patch]
 func (uc *UserController) EditProfile(ctx *gin.Context) {
 	userID := ctx.MustGet("user_id").(int)
 
@@ -111,7 +111,7 @@ func (uc *UserController) EditProfile(ctx *gin.Context) {
 	}
 
 	var pictureURL *string
-    // deletePicture := ctx.PostForm("delete_picture") == "true"
+	// deletePicture := ctx.PostForm("delete_picture") == "true"
 
 	if req.Picture != nil {
 		const maxUploadSize = 2 * 1024 * 1024
@@ -290,4 +290,39 @@ func (uc *UserController) FindReceivers(ctx *gin.Context) {
 	}
 
 	response.JSONSuccess(ctx, result, "Berhasil mengambil data penerima")
+}
+
+// Verify Profile PIN
+//
+//	@Summary        Verify current PIN before changing it
+//	@Description    Check if the provided 6-digit PIN matches the user's current PIN
+//	@Tags           users
+//	@Accept         json
+//	@Produce        json
+//	@Security       ApiKeyAuth
+//	@Param          body body       dto.CheckPinRequest true "Verify PIN payload"
+//	@Success        200 {object}    dto.Response[any]
+//	@Failure        400 {object}    dto.Response[any]
+//	@Failure        401 {object}    dto.Response[any]
+//	@Failure        500 {object}    dto.Response[any]
+//	@Router         /users/profile/checkpin [post]
+func (uc *UserController) VerifyProfilePin(ctx *gin.Context) {
+	userID := ctx.MustGet("user_id").(int)
+	var req dto.CheckPinRequest
+
+	if err := ctx.ShouldBindBodyWith(&req, binding.JSON); err != nil {
+		response.JSONBadRequest(ctx, "Format input PIN tidak valid")
+		return
+	}
+
+	if err := uc.userService.CheckPin(ctx.Request.Context(), userID, req); err != nil {
+		if errors.Is(err, service.ErrInvalidInput) || errors.Is(err, service.ErrInvalidCredentials) {
+			response.JSONUnauthorized(ctx, "Akses ditolak", "PIN saat ini salah")
+			return
+		}
+		response.JSONInternalServerError(ctx, err.Error())
+		return
+	}
+
+	response.JSONSuccess[any](ctx, nil, "PIN valid")
 }
