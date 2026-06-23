@@ -23,4 +23,5 @@ func RegisterUserRoutes(rg *gin.RouterGroup, userController *controller.UserCont
 	userGroup.PATCH("/profile/pin", userController.EditPin)
 	userGroup.POST("/transaction/checkpin", userController.CheckPin)
 	userGroup.GET("/receivers", userController.FindReceivers)
+	userGroup.POST("/profile/checkpin", userController.VerifyProfilePin)
 }
